@@ -1,11 +1,11 @@
 /** @format */
 
-import { Navbar, NavbarBrand, NavbarContent } from '@nextui-org/react';
+import { Navbar, NavbarBrand, NavbarContent } from '@nextui-org/navbar';
 import Navlink from '../navigation/nav-link';
 
 export default function Header() {
   return (
-    <Navbar shouldHideOnScroll className="main__navigation__links header">
+    <Navbar  className="main__navigation__links header">
       <NavbarBrand></NavbarBrand>
       <NavbarContent className='nav__list'>
         <Navlink href='/'>Domů</Navlink>

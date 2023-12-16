@@ -1,19 +1,17 @@
 /** @format */
 
-import SummaryGallery from './hero-summary-gallery';
+import ImageSlideshow from '../common/image-slideshow';
 
-interface HeroYearSummaryProps {
-  flip: boolean;
-  year: number | string;
+interface HeroYearSummaryProps {  
+  year: string;
   heading: string;
 }
 
-export default function HeroYearSummary({ flip, year, heading }: HeroYearSummaryProps) {
+export default function HeroYearSummary({ year, heading }: HeroYearSummaryProps) {  
   return (
-    <section className={`section__summary ${flip === true ? 'section__summary--flip' : ''}`}>
+    <section className={`section__summary`}>
       <h2 className='heading-forth u-margin-bottom-medium section__summary__heading'>{heading}</h2>
-
-      <SummaryGallery year={year} flip={flip} />
+      <ImageSlideshow length={9} folderName={year} />     
     </section>
   );
 }

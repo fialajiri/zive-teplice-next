@@ -13,13 +13,13 @@ export default function HeroSupport() {
       <h2 className='heading-secondary support__heading'>Děkujeme za podporu</h2>
       <div className='support__images'>
         <div className='support__image'>
-          <Image src={dekImg} width={120} height={60} alt='Stavebniny DEK' />
+          <Image src={dekImg} width={100} height={50} alt='Stavebniny DEK' className='support_img' />
         </div>
         <div className='support__image'>
-          <Image src={tpLogo} width={149} height={211} alt='Statutární město Teplice' />
+          <Image src={tpLogo} width={120} height={170} alt='Statutární město Teplice' />
         </div>
         <div className='support__image'>
-          <Image src={hanzlikLogo} width={340} height={67} alt='Jan Hanzlík' />
+          <Image src={hanzlikLogo} width={300} height={60} alt='Jan Hanzlík' />
         </div>
 
         <div className='support__image'>

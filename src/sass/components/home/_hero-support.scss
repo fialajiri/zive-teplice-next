@@ -1,3 +1,5 @@
+/** @format */
+
 .support {
   &__container {
     padding: 10rem 4rem 6rem 4rem;
@@ -41,6 +43,18 @@
     justify-content: space-around;
     overflow: hidden;
 
+    & img {
+      filter: brightness(0);
+      opacity: 50%;
+      transition: all 500ms;
+
+      &:hover {
+        filter: brightness(1);
+        opacity: 100%;
+        transform: scale(1.1);
+      }
+    }
+
     @include respond(tab-port) {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -54,8 +68,11 @@
       gap: 4rem;
     }
   }
-
-  &__image {
+  &__item {
+    overflow: hidden;
     position: relative;
+    transition: all 300ms;
+    width: 12rem;
+    height: 12rem;
   }
 }

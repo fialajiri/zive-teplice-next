@@ -14,7 +14,7 @@ export default function HeroSection() {
       <h2 className='heading-secondary hero__heading'>Sousedská slavnost v Teplicích</h2>
 
       <div className='hero__cards'>
-        <div className='hero__card hero__card--1'>
+        <div className='hero__card'>
           <Image className='card__icon' src={foodIcon} height={60} width={60} alt='Cart Icon' />
           <h3 className='heading-tertiary hero__card__heading'>Vynikající občerstvení</h3>
           <p className='paragraph hero__card__paragraph'>
@@ -24,7 +24,7 @@ export default function HeroSection() {
             masu.
           </p>
         </div>
-        <div className='hero__card hero__card--2'>
+        <div className='hero__card'>
           <Image className='hero__card__icon' src={musicIcon} height={60} width={60} alt='Music instrument icon' />
           <h3 className='heading-tertiary hero__card__heading'>Živé umění</h3>
           <p className='paragraph hero__card__paragraph'>
@@ -33,7 +33,7 @@ export default function HeroSection() {
             umělců a velmi nás těší, když si u nás někdo střihne svou exhibiční premiéru.
           </p>
         </div>
-        <div className='hero__card hero__card--3'>
+        <div className='hero__card'>
           <Image className='card__icon' src={craftIcon} height={60} width={60} alt='Paper bird and scissors' />
 
           <h3 className='heading-tertiary hero__card__heading'>Ruční výrobky</h3>
@@ -43,7 +43,7 @@ export default function HeroSection() {
             pořídíte, ale vždy si můžete být jistí, že je to s láskou dělané a neputovalo to tisíce kilometrů.
           </p>
         </div>
-        <div className='hero__card hero__card--4'>
+        <div className='hero__card'>
           <Image className='hero__card__icon' src={kidsIcon} height={60} width={60} alt='Ice-cream on a stick' />
 
           <h3 className='heading-tertiary hero__card__heading'>Děti s sebou</h3>
