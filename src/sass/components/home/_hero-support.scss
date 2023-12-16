@@ -1,0 +1,61 @@
+.support {
+  &__container {
+    padding: 10rem 4rem 6rem 4rem;
+    margin: 0 auto;
+
+    @include respond(tab-land) {
+      padding: 10rem 4rem 6rem 4rem;
+    }
+
+    @include respond(tab-port) {
+      padding: 10rem 3rem 3re, 3rem;
+    }
+
+    @include respond(phone) {
+      padding: 3rem 0rem;
+    }
+  }
+  &__heading {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 3rem;
+
+    @include respond(phone) {
+      padding: 0 1rem;
+      margin: auto;
+      margin-bottom: 6rem;
+    }
+
+    @include respond(phone-small) {
+      padding: 0 1rem;
+      margin: 0 auto;
+      text-align: center;
+      margin-bottom: 6rem;
+    }
+  }
+
+  &__images {
+    display: flex;
+    position: relative;
+    align-items: center;
+    justify-content: space-around;
+    overflow: hidden;
+
+    @include respond(tab-port) {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      justify-items: center;
+      align-items: center;
+    }
+
+    @include respond(phone) {
+      display: flex;
+      flex-direction: column;
+      gap: 4rem;
+    }
+  }
+
+  &__image {
+    position: relative;
+  }
+}

@@ -1,0 +1,33 @@
+.section__summary {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);    
+
+        
+    padding: 5rem 4rem 12rem 4rem;
+
+    @include respond(tab-port){
+        padding: 5rem 2rem 8rem 2rem;
+      } 
+
+      @include respond(phone){
+        padding: 3rem 1rem ;
+
+      } 
+
+
+
+    &--flip {
+       
+    }
+
+    &__heading{
+        grid-column: 1 / -1;
+        grid-row: 1 / 2;
+
+        @include respond(phone){
+            margin: 0 !important;
+    
+          } 
+    }
+}
+

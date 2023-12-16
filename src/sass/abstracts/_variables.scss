@@ -1,0 +1,65 @@
+//ZT COLORS
+
+
+
+
+
+// COLORS
+$color-primary: #C1E1C1;
+$color-primary-dark-1: #aecbae;
+//$color-primary: #a6d637;
+//$color-primary-dark-1: #85ab2c;
+$color-primary-dark-2: #536b1c;
+$color-primary-dark-3: #324010;
+$color-primary-light-1: #b8de5f;
+$color-primary-light-2: #d3eb9b;
+
+$color-secondary: #E19315;
+$color-secondary-dark:#b47611;
+$color-secondary-dark-2: #87580d;
+$color-secondary-light:#e7a944;
+$color-secondary-light-2: #edbe73;
+
+$color-blue: #8cb8e1;
+$color-red: #e65035;
+
+$color-brown: #301D19;
+$color-brown-2 : #703D2c;
+$color-brown-3 : #a46832;
+
+$color-grey: #666666;
+$color-grey-light-1: #757575;
+$color-grey-light-2: #949494;
+$color-grey-light-3: #a3a3a3;
+$color-grey-light-4: #c2c2c2;
+$color-grey-light-5: #e0e0e0;
+
+$color-grey-dark: #5c5c5c;
+$color-grey-dark-2:#474747;
+$color-grey-dark-3:#333333;
+
+
+
+$color-white: #fff;  
+$color-black: #000;
+
+// LINES AND SHADOW
+
+$shadow-light: 0 2rem 6rem rgba(0, 0, 0, .03);
+$shadow-light-2: 0 2rem 5rem rgba(0,0,0,.06);
+$shadow-dark: 0 3rem 8rem rgba($color-black, 0.3);
+$shadow-dark-2:0 5rem 10rem rgba($color-black, 0.5);
+
+$border-radius: 3rem;
+
+$line: 1px solid $color-grey-light-2;
+
+// FONT
+$font-primary: "Roboto", sans-serif;
+$font-display: "AmSans", sans-serif;
+
+$default-font-size: 1.6rem;
+
+
+// GRID
+$grid-width: 160rem;
