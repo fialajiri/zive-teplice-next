@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Živé Teplice — Next (`zive-teplice-next`)
 
-## Getting Started
+A **single, combined Next.js 15 (App Router) + TypeScript** application that replaces the two
+legacy projects:
 
-First, run the development server:
+| Legacy project | What it was | Fate |
+|---|---|---|
+| `zive-teplice-backend` | Express 4 / Mongoose 6 / Passport, plain JS (CommonJS) | Reimplemented as server code inside this app |
+| `zive-teplice-frontend` | Next.js 12 Pages Router / React 17 / SCSS, plain JS | Reimplemented as App Router routes + shadcn/ui |
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+The MongoDB database (**MongoDB Atlas**) and all existing data are **kept as-is**. Existing user
+passwords (hashed by `passport-local-mongoose`) keep working — no password resets required.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Chosen stack (scaffolded)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Framework:** Next.js 16 App Router, React 19.2, TypeScript 6 (pinned; latest 7 breaks lint tooling)
+- **UI:** shadcn/ui + Tailwind CSS v4 (Base UI primitives via Nova preset, `lucide-react` icons)
+- **Auth:** Auth.js v5 (`next-auth@beta`) — Credentials provider verifying the legacy pbkdf2 hashes
+- **DB:** MongoDB (unchanged) via Mongoose 9
+- **Storage:** AWS S3 via AWS SDK v3 + presigned uploads (browser → S3 direct)
+- **Tooling:** ESLint 9 (pinned), Prettier, Vitest 4, Husky + lint-staged
+- **Deploy:** Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See [`docs/02-libraries.md`](docs/02-libraries.md) for exact versions and the two "latest is too new"
+pins (TypeScript 6 and ESLint 9).
 
-## Learn More
+## How to read this plan
 
-To learn more about Next.js, take a look at the following resources:
+Read the docs in order:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. [`docs/01-architecture.md`](docs/01-architecture.md) — folder structure, layering, data-flow model
+2. [`docs/02-libraries.md`](docs/02-libraries.md) — every dependency, version, and why
+3. [`docs/03-backend-plan.md`](docs/03-backend-plan.md) — server rewrite: endpoint→server-action map, auth, uploads
+4. [`docs/04-frontend-plan.md`](docs/04-frontend-plan.md) — route map, component system, galleries, forms
+5. [`docs/05-data-and-auth-migration.md`](docs/05-data-and-auth-migration.md) — keep-Mongo analysis, schema pinning, pbkdf2 login compatibility
+6. [`docs/06-roadmap.md`](docs/06-roadmap.md) — phased, tracer-bullet delivery plan
+7. [`.env.example`](.env.example) — environment variables (old → new mapping)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Status
 
-## Deploy on Vercel
+**Phase 0 complete** — the app is scaffolded and green:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `npm run dev` — start dev server (Turbopack)
+- `npm run build` — production build ✅ passing
+- `npm run typecheck` — `tsc --noEmit` ✅ passing
+- `npm test` — Vitest ✅ 3/3 passing
+- `npm run lint` — ESLint ✅ clean
+- `npm run format` — Prettier
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Wired: Tailwind v4 + shadcn/ui design tokens (light/dark), `next-themes` provider, `sonner` toaster,
+`next/image` remote hosts for the existing S3/CloudFront images, security headers, Husky pre-commit
+(lint-staged + typecheck), and the layered `src/server/**` directory skeleton.
+
+Copy `.env.example` → `.env.local` and fill real secrets before Phase 1 (DB connectivity). Next up:
+**Phase 1** (DB layer + public read pages) in [`docs/06-roadmap.md`](docs/06-roadmap.md).
