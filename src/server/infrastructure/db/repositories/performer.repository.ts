@@ -5,20 +5,14 @@ import { UserModel, type UserDocument } from "../models/user.model";
 import type {
   PerformerDto,
   PerformerRepository,
-  PerformerType,
 } from "@/server/domain/performer";
 import { toImageDto } from "./mappers";
-
-function normalizeType(value: string): PerformerType {
-  return value === "prodejce" ? "prodejce" : "umělec";
-}
 
 function toPerformerDto(doc: UserDocument): PerformerDto {
   return {
     id: doc._id.toString(),
     username: doc.username,
     description: doc.description,
-    type: normalizeType(doc.type),
     image: toImageDto(doc.image),
   };
 }

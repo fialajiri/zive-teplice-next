@@ -7,8 +7,6 @@ import { getPerformer } from "@/server/application/performers";
 
 export const revalidate = 60;
 
-const TYPE_LABEL = { prodejce: "Prodejce", umělec: "Umělec" } as const;
-
 export async function generateMetadata({
   params,
 }: PageProps<"/ucinkujici/[id]">): Promise<Metadata> {
@@ -54,9 +52,6 @@ export default async function PerformerDetailPage({
           </div>
         ) : null}
         <div className="flex flex-col gap-3">
-          <span className="bg-secondary text-secondary-foreground w-fit rounded-full px-2 py-0.5 text-xs">
-            {TYPE_LABEL[performer.type]}
-          </span>
           <h1 className="text-3xl font-semibold tracking-tight">
             {performer.username}
           </h1>

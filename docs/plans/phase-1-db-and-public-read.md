@@ -99,7 +99,9 @@ Route group `(site)`, shared layout, `export const revalidate = 60`.
 - [x] `aktuality/page.tsx` + `[nid]/page.tsx` (detail renders **sanitized** `message`).
 - [x] `galerie/page.tsx` (grid) + `[gid]/page.tsx` (accessible `next/image` grid; lightbox is Phase 4).
 - [x] `program/page.tsx` — current event + its program.
-- [x] `ucinkujici/page.tsx` (prodejce/umělec split) + `[id]/page.tsx` (profile). Plus a static
+- [x] `ucinkujici/page.tsx` (single flat grid) + `[id]/page.tsx` (profile). The legacy
+      prodejce/umělec `type` is **retired on the web** (kept in the DB, unused; new users omit it).
+      Plus a static
       `kontakt/page.tsx` so nav has no dead links.
 - [x] `loading.tsx` / `error.tsx` / `not-found.tsx` for the group; detail routes call `notFound()`.
 - [x] Per-route `generateMetadata` / static `metadata`.

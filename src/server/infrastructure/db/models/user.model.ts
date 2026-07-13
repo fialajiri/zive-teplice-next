@@ -15,7 +15,7 @@ export type UserDocument = {
   salt?: string;
   phoneNumber: string;
   description: string;
-  type: string; // 'prodejce' | 'umělec' (constrained at the Zod boundary, not the DB)
+  type?: string; // legacy 'prodejce' | 'umělec' — retired on the web, kept for existing rows; new users omit it
   role: string; // 'user' | 'admin'
   event?: Types.ObjectId | null;
   request: string; // notsend | pending | rejected | approved
@@ -34,7 +34,7 @@ const userSchema = new Schema<UserDocument>(
     salt: { type: String, select: false },
     phoneNumber: { type: String, required: true },
     description: { type: String, required: true },
-    type: { type: String, required: true },
+    type: { type: String }, // legacy/retired — no longer required or used
     role: { type: String, default: "user" },
     event: { type: Schema.Types.ObjectId, ref: "Event", default: null },
     request: { type: String, default: "notsend" },

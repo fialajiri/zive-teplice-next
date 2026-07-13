@@ -2,11 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import type { PerformerDto } from "@/server/domain/performer";
 
-const TYPE_LABEL: Record<PerformerDto["type"], string> = {
-  prodejce: "Prodejce",
-  umělec: "Umělec",
-};
-
 export function PerformerCard({ performer }: { performer: PerformerDto }) {
   return (
     <article className="border-border/60 bg-card group flex flex-col overflow-hidden rounded-xl border">
@@ -26,14 +21,9 @@ export function PerformerCard({ performer }: { performer: PerformerDto }) {
           ) : null}
         </div>
         <div className="flex flex-1 flex-col gap-2 p-5">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="group-hover:text-primary font-semibold transition-colors">
-              {performer.username}
-            </h3>
-            <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 text-xs">
-              {TYPE_LABEL[performer.type]}
-            </span>
-          </div>
+          <h3 className="group-hover:text-primary font-semibold transition-colors">
+            {performer.username}
+          </h3>
           <p className="text-muted-foreground line-clamp-3 text-sm">
             {performer.description}
           </p>
