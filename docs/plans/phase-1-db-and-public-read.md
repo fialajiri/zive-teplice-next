@@ -11,10 +11,11 @@ data through RSC + ISR; existing S3/CloudFront images load via `next/image`; `np
 `typecheck`, `lint`, and `test` stay green.
 
 > **Status (in progress):** all application code is built and green (`build` / `typecheck` / `lint` /
-> `format` clean, **18 tests** passing). Verified against **live data** — the app currently talks to the
-> **production** DB (`zive-teplice-prod`) read-only; the isolated test DB (§0a) is **not yet created**.
-> Remaining before "done": create + point at the test DB (§0a), verify the single-`current`-event
-> invariant (§0), and add the list-page render smoke test (§6). See **Remaining work** at the bottom.
+> `format` clean, **18 tests** passing). The isolated test DB (`zive-teplice-new-test`) has been
+> **created, cloned from prod, and PII-sanitized** (§0a). The app still reads **production**
+> (`zive-teplice-prod`); flip `MONGODB_URI` to the test DB to finish the switch. Remaining before
+> "done": point the app at the test DB, verify the single-`current`-event invariant (§0), and add the
+> list-page render smoke test (§6). See **Remaining work** at the bottom.
 
 ---
 
@@ -36,21 +37,19 @@ string, so nothing this phase can corrupt real data. Requires MongoDB Database T
 
 - [x] Automation written: `scripts/clone-prod-to-test.ts` (`npm run db:clone-to-test -- --yes`) —
       dump → restore (`--drop`, ns remap) → PII sanitize, with guards refusing non-test targets.
-- [ ] Pick where the copy lives (isolation ↓, effort ↑):
-  - **Separate Atlas cluster (free M0) — recommended:** a wrong env var physically cannot reach prod
-  - Separate **DB name** on the same cluster: cheap, different namespace, but shares the cluster
-  - Local MongoDB (Docker `mongo:7`): fully offline, nothing can reach prod
-- [ ] Take a prod snapshot first (Atlas backup or a dump) as insurance before touching anything
-- [ ] Run the clone: set `MONGODB_URI_PROD` / `MONGODB_URI_TEST` in `.env.local`, then
-      `npm run db:clone-to-test -- --yes`. The script dumps, restores with `--drop` + `--nsFrom/--nsTo`
-      remap, and sanitizes PII (fakes `email`/`phoneNumber`, blanks `reset`/`refreshToken`, optionally
-      resets `hash`/`salt` to `TEST_USER_PASSWORD` for Phase 2 login testing).
-- [ ] Point the app at the copy: set `MONGODB_URI` in `.env.local` to the **test** URI
-      (keep `MONGODB_URI_PROD` only for re-dumping; the app never reads it)
-- [ ] Guardrails so the copy can't accidentally become prod:
-  - [ ] Test cluster/DB uses a **distinct name** (e.g. `zive-teplice-test`) — script enforces this
-  - [ ] Give the app user **read-only** creds for Phase 1 (writes come in Phase 3)
-  - [x] `.gitignore` covers `.env*`; the script never logs a full URI (credentials masked)
+- [x] Copy location chosen: **separate DB name on the same cluster** (`zive-teplice-new-test`).
+      (A separate free M0 cluster is stronger isolation; revisit before heavy Phase 3 write testing.)
+- [x] Ran the clone (`npm run db:clone-to-test -- --yes`) — dump → restore (`--drop`, ns remap) →
+      sanitize. **194 docs** restored (103 users / 60 news / 15 galleries / 8 programs / 8 events);
+      **103 users sanitized**: fake `@example.test` emails, `reset`/`refreshToken` removed, `hash`/`salt`
+      preserved. `TEST_USER_PASSWORD` was unset, so passwords were **not** reset — set it and re-run if
+      you want a uniform known password for Phase 2 login testing.
+- [ ] **Point the app at the copy:** set `MONGODB_URI` in `.env.local` to the **test** URI (still on
+      prod). Keep `MONGODB_URI_PROD` only for re-dumping; the app never reads it.
+- [ ] Prod snapshot as insurance is optional here — the clone only **reads** prod (`mongodump`); nothing
+      writes to it.
+- [x] Guardrails: test DB name contains "test" (script enforces); `.gitignore` covers `.env*`; the
+      script masks credentials in logs and restores with `--drop` scoped to the test namespace only.
 - [x] Automated tests use `mongodb-memory-server` (§6) — the cloned DB is for **manual / integration**
       verification against realistic data.
 

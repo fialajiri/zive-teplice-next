@@ -39,6 +39,14 @@ function parseUri(uri: string): ParsedUri {
   return { host: url.host, db };
 }
 
+// mongorestore needs a connection WITHOUT a default database when using --nsFrom/--nsTo,
+// otherwise it treats the dump dir as a single-DB dump and skips the nested db folder.
+function uriWithoutDb(uri: string): string {
+  const url = new URL(uri);
+  url.pathname = "/";
+  return url.toString();
+}
+
 function maskUri(uri: string): string {
   return uri.replace(/\/\/[^@]*@/, "//<credentials>@");
 }
@@ -109,8 +117,9 @@ async function main(): Promise<void> {
 
     console.log("\n▶ Restoring into test (drop + namespace remap)…");
     run("mongorestore", [
-      `--uri=${testUri}`,
+      `--uri=${uriWithoutDb(testUri)}`,
       "--drop",
+      `--nsInclude=${prod.db}.*`,
       `--nsFrom=${prod.db}.*`,
       `--nsTo=${test.db}.*`,
       dumpDir,
