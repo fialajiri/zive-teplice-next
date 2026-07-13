@@ -38,18 +38,23 @@ Read the docs in order:
 
 ## Status
 
-**Phase 0 complete** — the app is scaffolded and green:
+**Phase 1 in progress** — DB layer + public read path is built and green (`npm run build`,
+`typecheck`, `lint`, `test` all pass; 14 tests):
 
-- `npm run dev` — start dev server (Turbopack)
-- `npm run build` — production build ✅ passing
-- `npm run typecheck` — `tsc --noEmit` ✅ passing
-- `npm test` — Vitest ✅ 3/3 passing
-- `npm run lint` — ESLint ✅ clean
-- `npm run format` — Prettier
+- **DB layer:** serverless-safe cached Mongoose connection + five models with **pinned collection
+  names** and legacy fields (`hash`/`salt` declared `select:false`).
+- **Clean-architecture read path:** domain ports + DTOs → Mongoose repositories → read use cases
+  (`Result<T,E>`) wired through `src/server/container.ts`. Pages never touch Mongoose.
+- **Public pages (RSC + ISR, `revalidate=60`):** home, `aktuality` (+detail), `galerie` (+detail
+  grid), `program`, `ucinkujici` (+profile), `kontakt`; shared `(site)` layout with header/footer,
+  `loading`/`error`/`not-found`, per-route metadata, Czech dates, sanitized rich text.
+- **Tests:** use-case unit tests (mocked ports) + repository integration test (`mongodb-memory-server`).
 
-Wired: Tailwind v4 + shadcn/ui design tokens (light/dark), `next-themes` provider, `sonner` toaster,
-`next/image` remote hosts for the existing S3/CloudFront images, security headers, Husky pre-commit
-(lint-staged + typecheck), and the layered `src/server/**` directory skeleton.
+Phase 0 (scaffold) delivered the themed app, tooling (ESLint/Prettier/Vitest/Husky), design tokens,
+`next/image` remote hosts, and security headers.
 
-Copy `.env.example` → `.env.local` and fill real secrets before Phase 1 (DB connectivity). Next up:
-**Phase 1** (DB layer + public read pages) in [`docs/06-roadmap.md`](docs/06-roadmap.md).
+**Remaining before Phase 1 is truly "done" (needs your action):** create the isolated **test
+database** and clone prod into it — `npm run db:clone-to-test -- --yes` (see
+[`docs/plans/phase-1-db-and-public-read.md`](docs/plans/phase-1-db-and-public-read.md) §0a) — then set
+a real `MONGODB_URI` (pointing at the test DB) in `.env.local` and verify the pages render live data.
+Next: **Phase 2** (auth) in [`docs/06-roadmap.md`](docs/06-roadmap.md).

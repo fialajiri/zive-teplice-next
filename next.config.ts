@@ -6,6 +6,9 @@ const S3_HOST = "zive-teplice.s3.eu-central-1.amazonaws.com";
 const CLOUDFRONT_HOST = "d374dusjcsfayx.cloudfront.net";
 
 const nextConfig: NextConfig = {
+  // Mongoose is a server-only Node package; keep it out of the bundler so its
+  // dynamic requires and native optional deps resolve at runtime.
+  serverExternalPackages: ["mongoose"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: S3_HOST },
