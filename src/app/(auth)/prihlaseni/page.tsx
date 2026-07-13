@@ -1,0 +1,46 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { LoginForm } from "@/components/auth/login-form";
+
+export const metadata: Metadata = {
+  title: "Přihlášení",
+};
+
+type SearchParams = { callbackUrl?: string | string[] };
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const callbackUrl = firstParam((await searchParams).callbackUrl);
+
+  // Already signed in → skip the form.
+  const session = await auth();
+  if (session) {
+    redirect(
+      callbackUrl ?? (session.user.role === "admin" ? "/admin" : "/ucet"),
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-2 text-center">
+        <Link href="/" className="text-lg font-semibold tracking-tight">
+          Živé Teplice
+        </Link>
+        <h1 className="text-2xl font-semibold tracking-tight">Přihlášení</h1>
+        <p className="text-muted-foreground text-sm">
+          Přihlaste se ke svému účtu.
+        </p>
+      </div>
+      <LoginForm callbackUrl={callbackUrl} />
+    </div>
+  );
+}

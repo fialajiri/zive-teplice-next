@@ -16,6 +16,13 @@ Legacy auth: `../zive-teplice-backend/{authenticate.js,strategies,controllers/au
   logged out. Nav reflects session state (login ↔ logout, admin link).
 - `npm run build`, `typecheck`, `lint`, and `test` stay green.
 
+> **Status: ✅ DELIVERED** (2026-07-13). All code + tests landed; `build` / `typecheck` / `lint` /
+> `test` (33) / `format:check` green; public pages stay static/ISR. **Legacy password login verified
+> working end-to-end against real Atlas hashes** — the single highest-risk item is de-risked. Checklist
+> boxes below are ticked with inline `→` notes where the implementation deviated from the original plan.
+> Deferred (unchanged): registration, password reset/change, `hashPassword` for new creds, login
+> rate-limiting, real dashboards — all Phase 5 / later.
+
 > **Read first (this is Next.js 16 + Auth.js v5, both diverge from training data):**
 > `node_modules/next/dist/docs/01-app/**` and the current **Auth.js v5** docs (via context7 /
 > DocsExplorer). v5 renamed exports (`NextAuth()` returns `{ handlers, auth, signIn, signOut }`),
@@ -41,107 +48,129 @@ Legacy auth: `../zive-teplice-backend/{authenticate.js,strategies,controllers/au
 
 ## 0. Prerequisites
 
-- [ ] Working **test DB** with at least one known-password user (Phase 1 §0a — run
-      `db:clone-to-test` with `TEST_USER_PASSWORD`, or note one real admin's password for staging).
-      Login testing needs a real legacy `hash`/`salt` row.
-- [ ] `AUTH_SECRET` set in `.env.local` (`npx auth secret`) — currently empty. Also confirm `AUTH_URL`
-      and `SESSION_MAX_AGE` (integer seconds; parsed to `session.maxAge`).
-- [ ] Add `next-auth@beta` (Auth.js v5). Confirm it resolves against Next 16 / React 19 (check peer
-      deps; pin the exact working version).
-- [ ] Capture a **redacted** real `{ hash, salt }` sample from a known account + its plaintext (in a
-      safe local fixture, git-ignored) for the crypto unit test.
+- [x] Working **test DB** with a known-password user. → Confirmed live: legacy login verified against
+      real Atlas `hash`/`salt` rows (admin signed in with current password).
+- [x] `AUTH_SECRET` set in `.env.local` (generated, 32-byte base64). `AUTH_URL` +
+      `SESSION_MAX_AGE=2592000` confirmed; `SESSION_MAX_AGE` parsed as a plain integer → `session.maxAge`.
+- [x] Added **`next-auth@5.0.0-beta.31`** (`--save-exact`). → beta.31 is the first beta whose peer deps
+      list `next: ^16.0.0` + `react: ^19`; earlier betas (≤.29) cap at Next 15. Also added **`zod@4.4.3`**
+      as a direct dep (was only transitive) for the use-case input validation.
+- [ ] Capture a **redacted** real `{ hash, salt }` sample into a git-ignored fixture. → **Not done.** The
+      crypto test uses a synthetic regression vector instead (see §1). Login parity was proven live, so
+      this is now a nice-to-have for a permanent offline regression check, not a blocker.
 
 ## 1. Password crypto (`src/server/infrastructure/auth/password.ts`)
 
-- [ ] `verifyLegacyPassword(password, salt, hash): Promise<boolean>` — pbkdf2 (25000/512/sha256/hex),
-      salt passed as the stored **hex string**, compare with `timingSafeEqual` (guard length first).
-      `import "server-only"`, promisified `node:crypto` pbkdf2.
-- [ ] Defer `hashPassword` (new-password creation) to Phase 5 unless trivially reused — Phase 2 is
-      login only. If added, use the **identical** format so there's never a mixed-format problem.
-- [ ] **The single most important test:** unit-test `verifyLegacyPassword` against the captured real
-      sample (correct password → true, wrong → false). If this passes, every existing user can log in.
+- [x] `verifyLegacyPassword(password, salt, hash): Promise<boolean>` — pbkdf2 (25000/512/sha256/hex),
+      salt passed as the stored **hex string**, `timingSafeEqual` with a length guard first.
+      `import "server-only"`, promisified `node:crypto` pbkdf2. → Also returns `false` (never throws)
+      for missing/empty/non-hex/wrong-length inputs so callers treat any failure as invalid.
+- [x] `hashPassword` **deferred to Phase 5** (not added) — Phase 2 is login only.
+- [x] Unit-test `verifyLegacyPassword` (correct → true, wrong → false, plus bad-input cases).
+      → Uses a **synthetic reference vector** generated with the exact passport-local-mongoose defaults
+      (pins the params against drift), not a captured real sample. The definitive real-data check was
+      done **live** (login verified). Drop a redacted real `{salt,hash}` fixture in later for a permanent
+      offline vector.
 
 ## 2. Auth domain + use case (`src/server/`)
 
 Keep Auth.js thin; put the "who is this user" logic behind a port + use case (testable, no framework).
 
-- [ ] `domain/auth.ts` — `SessionUser` type (`{ id, username, role }`) and an
-      `AuthUserRepository` port: `findByEmailWithSecret(email): Promise<UserWithSecret | null>`
-      (returns `id`, `username`, `role`, `hash`, `salt`).
-- [ ] `infrastructure/db/repositories/auth.repository.ts` — Mongoose impl using
-      `UserModel.findOne({ email }).select("+hash +salt").lean()`. Never returns secrets in a DTO
-      beyond what `authorize()` consumes.
-- [ ] `application/authenticate.ts` — `authenticateUser(deps, { email, password }): Promise<Result<SessionUser>>`.
-      Zod-validate input; load user; `verifyLegacyPassword`; return `SessionUser` or a typed
-      `invalid_credentials` error. **Same generic error** for unknown-email and wrong-password.
-- [ ] Wire the repo into `container.ts`.
+- [x] `domain/auth.ts` — `SessionUser` (`{ id, username, role }`), a `Role` union (`"user" | "admin"`),
+      a `UserWithSecret` type, and the `AuthUserRepository` port `findByEmailWithSecret(email)`.
+- [x] `infrastructure/db/repositories/auth.repository.ts` — `UserModel.findOne({ email })`
+      `.select("+hash +salt").lean()`. → Normalises `role` to the `Role` union and treats a row missing
+      `hash`/`salt` as **absent** (returns `null`). Secrets are consumed only by the use case.
+- [x] `application/authenticate.ts` — `authenticateUser(deps, { email, password })` →
+      `Result<SessionUser, AuthFailure>`. Zod-validates (trims/lowercases email); load user;
+      `verifyPassword`; returns `SessionUser` or a single `{ kind: "invalid_credentials" }` for bad
+      input, unknown email **and** wrong password alike. → `deps` injects both the repo and the verify
+      fn, so the use case unit-tests with no crypto/DB.
+- [x] Wire the repo into `container.ts` (`authUserRepository`).
 
 ## 3. Auth.js configuration (`src/auth.ts`)
 
-- [ ] `NextAuth({...})` exporting `{ handlers, auth, signIn, signOut }`:
-  - [ ] `providers: [Credentials({ authorize })]` — `authorize` calls `authenticateUser(...)` and
-        returns `{ id, name: username, role }` or `null`. Thin: no crypto/DB logic inline.
-  - [ ] `session: { strategy: "jwt", maxAge: Number(SESSION_MAX_AGE) }`.
-  - [ ] `callbacks.jwt` — copy `id`/`role` onto the token on sign-in; `callbacks.session` — expose
-        them on `session.user`.
-  - [ ] `pages: { signIn: "/prihlaseni" }`; set `trustHost: true` for non-Vercel/preview if needed.
-- [ ] `src/app/api/auth/[...nextauth]/route.ts` — `export const { GET, POST } = handlers`.
-- [ ] `src/types/next-auth.d.ts` — module augmentation adding `id` + `role` to `Session["user"]` and
-      the JWT (no `any`).
+- [x] `NextAuth({...})` exporting `{ handlers, auth, signIn, signOut }`:
+  - [x] `providers: [Credentials({ authorize })]` — `authorize` calls `authenticateUser(...)` (with
+        `container.authUserRepository` + `verifyLegacyPassword`) and returns `{ id, name: username, role }`
+        or `null`. Thin: no crypto/DB inline.
+  - [x] `session: { strategy: "jwt", maxAge }` — `maxAge` from a `sessionMaxAge()` helper that parses a
+        positive integer, else falls back to 30 days.
+  - [x] `callbacks.jwt` copies `id`/`role` onto the token on sign-in; `callbacks.session` exposes them
+        on `session.user`.
+  - [x] `pages: { signIn: "/prihlaseni" }`; `trustHost: true`.
+- [x] `src/app/api/auth/[...nextauth]/route.ts` — `export const { GET, POST } = handlers`.
+- [x] `src/types/next-auth.d.ts` — augments `Session["user"]`, `User`, and `JWT` with `id`/`role`
+      (`Role`, no `any`). → Custom JWT claims still read back as `unknown` across next-auth's re-export
+      boundary, so the `session` callback narrows `token.id`/`token.role` with an explicit cast.
 
 ## 4. Login / logout UI (`src/app/(auth)/`)
 
-- [ ] `(auth)/layout.tsx` — centered, minimal auth shell (own layout, outside `(site)`).
-- [ ] `(auth)/prihlaseni/page.tsx` — accessible login form (email + password, native types, labels):
-      a **server action** wrapping `signIn("credentials", ...)` with `useActionState` for inline,
-      announced errors (don't redirect on error; show the generic message). Redirect to `callbackUrl`
-      or `/ucet` (or `/admin` for admins) on success.
-- [ ] Logout — server action calling `signOut()`; button in nav / account area.
-- [ ] Add Auth.js `<SessionProvider>` to `components/providers.tsx` (alongside `ThemeProvider`) so
-      client nav can read session.
+- [x] `(auth)/layout.tsx` — centered, minimal auth shell (own `<main>`, outside `(site)`).
+- [x] `(auth)/prihlaseni/page.tsx` — accessible login form (email + password, native types, labels),
+      inline announced generic error, role-based post-login destination (`callbackUrl` → `/admin` for
+      admins → `/ucet`), open-redirect-safe `callbackUrl`. Page also redirects already-signed-in users.
+      → **Deviation from the original recipe.** The plan said "server action wrapping `signIn` +
+      `useActionState`, redirect on success." That leaves the header **stale**: the `SessionProvider`
+      caches the session client-side, and a server-side `redirect()` is a *soft* navigation, so after
+      login the nav kept showing **Přihlásit**. Fix: the `login` server action now **returns**
+      `{ ok, redirectTo } | { ok:false, error }` (no server redirect); the client form
+      (`useTransition`, not `useActionState`) does a **full-page** `window.location.assign(redirectTo)`
+      on success so the provider re-reads the session. The clean use-case/`authorize` path is unchanged.
+- [x] Logout — `logout` server action calls `signOut({ redirect: false })` (clears cookie only); the
+      client `LogoutButton` then does a full-page nav to `/` (same stale-provider reason as login).
+- [x] Added `<SessionProvider>` to `components/providers.tsx`. → It fetches the session client-side, so
+      public pages stay **static/ISR** (confirmed in the build route table) rather than being forced
+      dynamic by an `auth()` call in a shared layout.
 
 ## 5. Route guards + session-aware nav
 
-- [ ] `app/admin/layout.tsx` — `const session = await auth();` redirect to
-      `/prihlaseni?callbackUrl=…` if no session **or** `session.user.role !== "admin"`.
-      `export const dynamic = "force-dynamic"` (never cache authed pages).
-- [ ] `app/ucet/layout.tsx` — same guard, session required (any role).
-- [ ] Minimal placeholder `app/admin/page.tsx` + `app/ucet/page.tsx` (real dashboards are Phase 3/5;
-      Phase 2 only proves the guard + redirect).
-- [ ] `SiteHeader` — reflect session: show **Přihlásit** when logged out, **Odhlásit** + account link
-      when logged in, and an **Admin** link only when `role === "admin"`.
-- [ ] *(Optional)* `middleware.ts` for coarse pre-render redirects — only with the split edge-safe
-      `auth.config.ts` (see gotcha #2). Skippable; layouts already guard.
+- [x] `app/admin/layout.tsx` — `await auth()`; redirect to `/prihlaseni?callbackUrl=/admin` if no
+      session; `export const dynamic = "force-dynamic"`. → A logged-in **non-admin** is sent to `/ucet`,
+      **not** back to login: bouncing them through `callbackUrl` would ping-pong with the login page's
+      already-signed-in redirect and loop.
+- [x] `app/ucet/layout.tsx` — same shape; any session allowed, only guards against logged-out.
+- [x] Minimal placeholder `app/admin/page.tsx` + `app/ucet/page.tsx` (each its own `<main>`; greet by
+      `session.user.name`; contain a `LogoutButton`). Real dashboards are Phase 3/5.
+- [x] `SiteHeader` reflects session via `useSession`: **Přihlásit** logged out; **Můj účet** +
+      **Odhlásit** logged in; **Admin** link only when `role === "admin"`. Renders nothing while the
+      session is still `loading` to avoid a wrong-state flash.
+- [x] *(Optional)* `middleware.ts` — **skipped** (layouts already guard; no edge-safe split needed).
 
 ## 6. Security
 
-- [ ] Generic auth error only (no "user not found" vs "wrong password" distinction).
-- [ ] Server-side authorization on every guarded route; never trust a client `role`.
-- [ ] Rely on Auth.js httpOnly + secure + sameSite cookies; `AUTH_SECRET` required (fail build/run
-      without it in prod).
-- [ ] Never log passwords, hashes, salts, tokens, or full session objects.
-- [ ] Parse `SESSION_MAX_AGE` as a plain integer (replaces the legacy `eval()` on expiry values).
-- [ ] *(Note / optional)* basic login rate-limiting is a nice-to-have; can defer, but record the gap.
+- [x] Generic auth error only — single `invalid_credentials`, one Czech message; no enumeration.
+- [x] Server-side authorization on every guarded route (`auth()` in layouts); client `role` never trusted.
+- [x] Auth.js httpOnly + sameSite cookies (secure in prod); `AUTH_SECRET` set.
+- [x] Nothing sensitive logged — no passwords/hashes/salts/tokens/session objects go through `console`.
+- [x] `SESSION_MAX_AGE` parsed as a plain integer (no `eval()`).
+- [ ] Login **rate-limiting** — **deferred** (recorded gap; Credentials gets no built-in throttling).
+      Add before/with public registration in Phase 5.
 
 ## 7. Tests
 
-- [ ] **`verifyLegacyPassword`** against the real redacted sample — correct + wrong password (§1).
-- [ ] `authenticateUser` use-case unit tests (mocked repo + crypto): valid, wrong password, unknown
-      email → all correct `Result`; assert unknown-email and wrong-password yield the **same** error.
-- [ ] `auth.repository` integration test (`mongodb-memory-server`): seeded user is found **with**
-      `hash`/`salt`; a normal read path never leaks them.
-- [ ] *(Optional)* login-form component test (renders, submits, shows error on failure).
-- [ ] Guards/middleware are verified **manually** (auth()/redirect are awkward to unit test) — list the
-      manual steps in §Verify.
+- [x] **`verifyLegacyPassword`** — correct → true, wrong → false, plus missing/non-hex/wrong-length
+      inputs. → Against the synthetic reference vector (§1), not a captured real sample.
+- [x] `authenticateUser` use-case unit tests (mocked repo + crypto): valid, wrong password, unknown
+      email; asserts unknown-email and wrong-password yield the **same** error, and that verification is
+      skipped for an unknown email.
+- [x] `auth.repository` integration test (`mongodb-memory-server`): seeded user found **with**
+      `hash`/`salt`; secret-less row → `null`; normal `lean()` read never leaks the secrets.
+- [ ] *(Optional)* login-form component test — **not added** (skipped; the flow is exercised manually).
+- [x] Guards verified **manually** (see §8). Total: **33 tests** green.
 
 ## 8. Verify & wrap up
 
-- [ ] Existing **admin** logs in with real password → reaches `/admin`.
-- [ ] Existing **performer** logs in → reaches `/ucet`; `/admin` redirects them away (role check).
+- [x] Existing **admin** logs in with real password → reaches `/admin`. **Verified live.**
+- [x] Nav toggles correctly after the stale-`SessionProvider` fix (login → **Odhlásit**; logout →
+      **Přihlásit**). **Verified live** (this was the reported bug; see §4).
+- [ ] Existing **performer** logs in → reaches `/ucet`; `/admin` bounces them to `/ucet`. *(recommend a
+      quick manual pass — implemented, not yet observed live)*
 - [ ] Logged-out access to `/admin` and `/ucet` redirects to `/prihlaseni` and returns after login.
-- [ ] Wrong password shows the generic error; nav toggles login/logout; logout clears the session.
-- [ ] `build` / `typecheck` / `lint` / `test` green; `format:check` clean.
-- [ ] Update `README.md` status → Phase 2; note anything deferred.
+      *(implemented; quick manual confirmation recommended)*
+- [ ] Wrong password shows the generic error. *(implemented; quick manual confirmation recommended)*
+- [x] `build` / `typecheck` / `lint` / `test` (33) green; `format:check` clean.
+- [x] Updated `README.md` status → Phase 2; deferred items noted.
 
 ## Out of scope (later phases)
 

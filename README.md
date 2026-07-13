@@ -38,23 +38,34 @@ Read the docs in order:
 
 ## Status
 
-**Phase 1 in progress** — DB layer + public read path is built and green (`npm run build`,
-`typecheck`, `lint`, `test` all pass; 14 tests):
+**Phase 2 (auth) in progress** — Auth.js v5 Credentials login with legacy password compatibility is
+built and green (`npm run build`, `typecheck`, `lint`, `test` all pass; 33 tests):
 
-- **DB layer:** serverless-safe cached Mongoose connection + five models with **pinned collection
-  names** and legacy fields (`hash`/`salt` declared `select:false`).
-- **Clean-architecture read path:** domain ports + DTOs → Mongoose repositories → read use cases
-  (`Result<T,E>`) wired through `src/server/container.ts`. Pages never touch Mongoose.
-- **Public pages (RSC + ISR, `revalidate=60`):** home, `aktuality` (+detail), `galerie` (+detail
-  grid), `program`, `ucinkujici` (+profile), `kontakt`; shared `(site)` layout with header/footer,
-  `loading`/`error`/`not-found`, per-route metadata, Czech dates, sanitized rich text.
-- **Tests:** use-case unit tests (mocked ports) + repository integration test (`mongodb-memory-server`).
+- **Legacy password compat:** `verifyLegacyPassword` reproduces the `passport-local-mongoose`
+  pbkdf2 exactly (25000 iters, keylen 512, sha256, hex, salt used as the hex string) with
+  `timingSafeEqual` — existing users log in with their current passwords, zero resets. Pinned by a
+  regression-vector unit test.
+- **Clean-architecture auth path:** `domain/auth.ts` (`SessionUser` + `AuthUserRepository` port) →
+  `auth.repository.ts` (loads `+hash +salt`) → `authenticateUser` use case (Zod-validated, single
+  generic `invalid_credentials` for unknown-email *and* wrong-password) wired through the container.
+  Auth.js `authorize` stays thin — it just calls the use case.
+- **Auth.js v5 (`src/auth.ts`):** Credentials provider, **JWT** sessions carrying `id`/`role`
+  (no `type`), `pages.signIn = /prihlaseni`, `SESSION_MAX_AGE` parsed as a plain integer.
+- **UI + guards:** `(auth)/prihlaseni` login form (server action + `useActionState`, inline generic
+  error), server-action logout, `SessionProvider`-aware header (Přihlásit ↔ Odhlásit + Admin link).
+  `app/admin` (role `admin`) and `app/ucet` (any session) are guarded in server-component layouts
+  (`force-dynamic`); public pages stay static/ISR.
+- **Tests:** `verifyLegacyPassword` (regression vector), `authenticateUser` use case (mocked repo +
+  crypto; asserts unknown-email and wrong-password yield the same error), `auth.repository`
+  integration (`mongodb-memory-server`; secrets load only via `+hash +salt`, never on normal reads).
 
-Phase 0 (scaffold) delivered the themed app, tooling (ESLint/Prettier/Vitest/Husky), design tokens,
-`next/image` remote hosts, and security headers.
+Phase 1 delivered the DB layer (cached Mongoose connection, five models with pinned collection names)
+and the clean-architecture public read path (RSC + ISR) for all public pages. Phase 0 delivered the
+themed app, tooling, design tokens, `next/image` remote hosts, and security headers.
 
-**Remaining before Phase 1 is truly "done" (needs your action):** create the isolated **test
-database** and clone prod into it — `npm run db:clone-to-test -- --yes` (see
-[`docs/plans/phase-1-db-and-public-read.md`](docs/plans/phase-1-db-and-public-read.md) §0a) — then set
-a real `MONGODB_URI` (pointing at the test DB) in `.env.local` and verify the pages render live data.
-Next: **Phase 2** (auth) in [`docs/06-roadmap.md`](docs/06-roadmap.md).
+**Needs your action to fully verify Phase 2:** point `MONGODB_URI` at a **test DB** with a known-password
+user (`npm run db:clone-to-test -- --yes` with `TEST_USER_PASSWORD`, see
+[`docs/plans/phase-1-db-and-public-read.md`](docs/plans/phase-1-db-and-public-read.md) §0a), `AUTH_SECRET`
+is already generated in `.env.local`, then run `npm run dev` and sign an existing admin + performer in.
+Deferred to later phases: registration, password reset/change, `hashPassword` for new credentials,
+login rate-limiting, and real admin/account dashboards.
