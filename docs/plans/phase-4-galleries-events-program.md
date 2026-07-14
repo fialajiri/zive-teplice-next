@@ -13,16 +13,38 @@ endpoint maps + §3 event-state transaction), `docs/01-architecture.md` (data-fl
 `docs/06-roadmap.md` §Phase 4, and `docs/plans/phase-3-news-crud-uploads.md` (the pattern this extends).
 Legacy: `../zive-teplice-backend/{controllers/gallery.js,controllers/event.js,routes/gallery.js,routes/event.js,middleware/file-upload.js,models/{gallery,event,program}.js}`.
 
-## ✅ Status: CRUD complete (§1–8, §10–11) — 2026-07-14 · §9 deferred to mini-phase 4.5
+## ✅ Status: CRUD + client-side compression complete (§1–8, §10–11) — 2026-07-14 · §9 legacy backfill → mini-phase 4.5
 
-Galleries + events + program CRUD is built and green (`build`, `typecheck`, `lint`, `test` (98),
+Galleries + events + program CRUD is built and green (`build`, `typecheck`, `lint`, `test` (107),
 `format:check`). Bulk upload (concurrency-capped, partial-failure tolerant), the atomic "make current"
 event transaction (verified on `MongoMemoryReplSet`, including rollback), and program add/update all work;
 every mutating action is `requireAdmin()`-guarded and re-validates image refs via the shared
-`isValidUploadedImage`. **§9 (gallery image optimization / the 150-photo scale fix) is deferred to a
-mini-phase 4.5** as the plan sanctions — small/medium galleries render via the existing S3→CloudFront
-read-rewrite; the legacy 10–16 MB originals still need CloudFront resize (Option A) or Sharp derivatives
-(Option B) + backfill. Also deferred: public gallery lightbox and the orphaned-object sweep.
+`isValidUploadedImage`.
+
+**Added beyond the original plan (post-review with the maintainer):**
+
+- **Client-side image compression** (`components/admin/image-compression.ts`, native Canvas — no dep).
+  Photographer originals run 15–30 MB; both uploaders now compress in the browser **before** the presigned
+  PUT — EXIF-correct decode (`imageOrientation: "from-image"`), downscale to a 2560px longest edge,
+  re-encode to JPEG (~5 MB target, quality stepped down on overshoot), transparency flattened to white.
+  Selection accepts originals up to **35 MB** (`MAX_ORIGINAL_BYTES`); the server ceiling stays 8 MB and
+  applies to the **compressed** result. Falls back to the original on failure / unsupported browser. Wired
+  into `BulkImageUpload` (throttled compress phase → batch presign → PUTs, with a two-phase progress bar)
+  **and** the single `ImageUpload`.
+- **This re-frames §9:** new uploads are now web-sized at the source, so the `next/image` optimizer no
+  longer chokes on them — §9's scale problem is solved going forward. What remains in **mini-phase 4.5** is
+  only the **legacy 10–16 MB originals already in S3**: either an on-the-fly CloudFront resize (Option A) or
+  a one-time Sharp backfill (Option B). Until then those render via the existing S3→CloudFront read-rewrite
+  in `mappers.ts`.
+- **Bulk-uploader double-append fix:** `onComplete` had been called from inside a `setItems` updater, which
+  React Strict Mode double-invokes in dev → the batch persisted twice. Successes are now collected locally
+  and `onComplete` fires exactly once.
+
+Also deferred: public gallery lightbox and the orphaned-object sweep.
+
+> ⚠️ Verify in a real browser: the Canvas compression can't run under jsdom, so the unit tests only cover
+> the pure dimension/filename helpers. Upload a 20–30 MB photo and confirm it lands as a few-MB,
+> correctly-oriented JPEG.
 
 **Exit criteria (deliverable):**
 
@@ -182,7 +204,12 @@ read-rewrite; the legacy 10–16 MB originals still need CloudFront resize (Opti
 
 ## 9. Gallery image optimization (decision + implementation)
 
-The 150-photo gallery makes this urgent: `next/image` times out (`500`) fetching the 10–16 MB legacy
+> **Update (2026-07-14):** partially resolved. **New uploads are now compressed client-side to ~2560px /
+> a few MB before hitting S3** (`components/admin/image-compression.ts`), so `next/image` handles them
+> fine — §9 no longer applies to anything uploaded going forward. What's left for **mini-phase 4.5** is
+> only the **existing legacy 10–16 MB objects**; pick Option A or B below for those (plus a backfill).
+
+The legacy galleries make this urgent: `next/image` times out (`500`) fetching the 10–16 MB legacy
 originals, and backs up (`pending`) at scale. Pick one before wiring the display:
 
 - **Option A — On-the-fly CloudFront resize (recommended for time-to-value).** CloudFront + Lambda@Edge
