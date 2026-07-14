@@ -149,6 +149,7 @@ export function RegistrationForm() {
         <ImageUpload
           id="image"
           prefix="performer"
+          aspectRatio={4 / 3}
           alt="Náhled profilového obrázku"
           value={image}
           onChange={setImage}

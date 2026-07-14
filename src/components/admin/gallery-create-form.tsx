@@ -85,6 +85,7 @@ export function GalleryCreateForm() {
         <ImageUpload
           id="featured"
           prefix="gallery"
+          aspectRatio={1}
           value={featured}
           onChange={setFeatured}
           ariaInvalid={fieldError("image") ? true : undefined}

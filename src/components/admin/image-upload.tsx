@@ -14,6 +14,11 @@ import {
   type UploadedImage,
 } from "@/components/admin/upload-client";
 import { compressImage } from "@/components/admin/image-compression";
+import {
+  getCroppedImageBlob,
+  type CropPixels,
+} from "@/components/admin/image-crop";
+import { ImageCropDialog } from "@/components/admin/image-crop-dialog";
 
 export type { UploadedImage };
 
@@ -25,6 +30,10 @@ type ImageUploadProps = {
   onChange: (value: UploadedImage | null) => void;
   /** Server-controlled destination prefix (defaults to "news"). */
   prefix?: UploadPrefix;
+  /** Width/height ratio of where this image is actually displayed (e.g. 4/3 for
+   * performer cards, 16/9 for news, 1 for gallery covers) — the crop dialog and
+   * preview box are constrained to this so what you crop is what you get. */
+  aspectRatio: number;
   /** Accessible label for the preview image (defaults to a generic caption). */
   alt?: string;
   ariaInvalid?: boolean;
@@ -36,6 +45,7 @@ export function ImageUpload({
   value,
   onChange,
   prefix = "news",
+  aspectRatio,
   alt = "Náhled nahraného obrázku",
   ariaInvalid,
   ariaDescribedby,
@@ -48,23 +58,13 @@ export function ImageUpload({
   const [error, setError] = useState<string | null>(null);
   // Local object-URL preview while uploading; falls back to the stored public URL.
   const [localPreview, setLocalPreview] = useState<string | null>(null);
+  // Object URL + original filename awaiting a crop decision, before any upload starts.
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [pendingFileName, setPendingFileName] = useState<string>("photo.jpg");
 
   const preview = localPreview ?? value?.imageUrl ?? null;
 
-  async function handleFile(file: File) {
-    setError(null);
-
-    if (!ACCEPTED_MIME.includes(file.type)) {
-      setStatus("error");
-      setError("Povolené jsou pouze obrázky PNG nebo JPG.");
-      return;
-    }
-    if (file.size > MAX_ORIGINAL_BYTES) {
-      setStatus("error");
-      setError("Obrázek je příliš velký (max 35 MB).");
-      return;
-    }
-
+  async function uploadFile(file: File) {
     setProgress(0);
     setLocalPreview(URL.createObjectURL(file));
 
@@ -94,9 +94,49 @@ export function ImageUpload({
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (file) void handleFile(file);
-    // Allow re-selecting the same file.
-    event.target.value = "";
+    event.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+
+    setError(null);
+
+    if (!ACCEPTED_MIME.includes(file.type)) {
+      setStatus("error");
+      setError("Povolené jsou pouze obrázky PNG nebo JPG.");
+      return;
+    }
+    if (file.size > MAX_ORIGINAL_BYTES) {
+      setStatus("error");
+      setError("Obrázek je příliš velký (max 35 MB).");
+      return;
+    }
+
+    // Open the crop dialog first — nothing is compressed/uploaded until confirmed.
+    setPendingFileName(file.name);
+    setCropSrc(URL.createObjectURL(file));
+  }
+
+  function handleCropCancel() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  }
+
+  async function handleCropConfirm(crop: CropPixels) {
+    const src = cropSrc;
+    if (!src) return;
+    setCropSrc(null);
+
+    try {
+      const blob = await getCroppedImageBlob(src, crop);
+      const croppedFile = new File([blob], pendingFileName, {
+        type: "image/jpeg",
+      });
+      await uploadFile(croppedFile);
+    } catch {
+      setStatus("error");
+      setError("Oříznutí obrázku se nezdařilo. Zkuste to prosím znovu.");
+    } finally {
+      URL.revokeObjectURL(src);
+    }
   }
 
   function handleRemove() {
@@ -124,8 +164,20 @@ export function ImageUpload({
         aria-describedby={describedBy}
       />
 
+      {cropSrc ? (
+        <ImageCropDialog
+          imageUrl={cropSrc}
+          aspectRatio={aspectRatio}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      ) : null}
+
       {preview ? (
-        <div className="border-input relative aspect-[16/9] w-full max-w-md overflow-hidden rounded-lg border">
+        <div
+          className="border-input relative w-full max-w-md overflow-hidden rounded-lg border"
+          style={{ aspectRatio }}
+        >
           {/* Unoptimized: local blob previews and just-uploaded objects aren't served through next/image. */}
           <Image
             src={preview}

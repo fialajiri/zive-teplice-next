@@ -151,6 +151,7 @@ export function EventProgramForm({
         <ImageUpload
           id="program-image"
           prefix="program"
+          aspectRatio={16 / 9}
           value={image}
           onChange={handleImageChange}
           ariaInvalid={fieldError("image") ? true : undefined}

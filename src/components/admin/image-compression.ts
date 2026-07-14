@@ -52,7 +52,7 @@ function supportsCompression(): boolean {
   );
 }
 
-function canvasToBlob(
+export function canvasToBlob(
   canvas: HTMLCanvasElement,
   quality: number,
 ): Promise<Blob | null> {

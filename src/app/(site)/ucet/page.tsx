@@ -27,7 +27,7 @@ export default async function AccountPage() {
         );
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-3xl flex-col gap-8 px-6 py-12">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
       <header className="flex items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">Můj účet</h1>
@@ -90,13 +90,6 @@ export default async function AccountPage() {
           Váš profil se nepodařilo načíst. Zkuste to prosím později.
         </p>
       )}
-
-      <Link
-        href="/"
-        className="text-primary text-sm underline-offset-4 hover:underline"
-      >
-        ← Zpět na web
-      </Link>
-    </main>
+    </div>
   );
 }
