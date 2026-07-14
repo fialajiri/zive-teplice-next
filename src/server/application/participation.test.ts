@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { requestParticipation } from "./participation";
+import { requestParticipation, decideParticipation } from "./participation";
 import type {
   ParticipationStatus,
   PerformerAccountDto,
   PerformerRepository,
 } from "@/server/domain/performer";
+import type { Mailer, MailMessage } from "@/server/domain/mailer";
+import { ok, err, unexpected, type Result } from "@/server/domain/result";
 
 function accountWith(request: ParticipationStatus): PerformerAccountDto {
   return {
@@ -26,6 +28,7 @@ function makeRepo(request: ParticipationStatus): {
   const repo: PerformerRepository = {
     list: vi.fn(),
     getById: vi.fn(),
+    listForAdmin: vi.fn(),
     create: vi.fn(),
     findByEmail: vi.fn(),
     existsByUsername: vi.fn(),
@@ -70,5 +73,51 @@ describe("requestParticipation", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.kind).toBe("not_found");
+  });
+});
+
+describe("decideParticipation", () => {
+  function makeDeps(mailerResult: Result<void> = ok(undefined)) {
+    const { repo, setRequest } = makeRepo("pending");
+    const send = vi.fn<(message: MailMessage) => Promise<Result<void>>>(
+      async () => mailerResult,
+    );
+    const mailer: Mailer = { send };
+    return { deps: { performers: repo, mailer }, setRequest, send };
+  }
+
+  it.each(["approved", "rejected"] as const)(
+    "sets status to %s and emails the performer",
+    async (decision) => {
+      const { deps, setRequest, send } = makeDeps();
+
+      const result = await decideParticipation(deps, "p1", decision);
+
+      expect(result.ok).toBe(true);
+      expect(setRequest).toHaveBeenCalledWith("p1", decision);
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send.mock.calls[0][0].to).toBe("a@b.cz");
+    },
+  );
+
+  it("still succeeds when the decision email fails (best-effort, gotcha #6)", async () => {
+    const { deps, setRequest } = makeDeps(err(unexpected("smtp down")));
+
+    const result = await decideParticipation(deps, "p1", "approved");
+
+    // Email failed, but the status change is NOT rolled back.
+    expect(result.ok).toBe(true);
+    expect(setRequest).toHaveBeenCalledWith("p1", "approved");
+  });
+
+  it("returns not_found for an unknown performer (no email sent)", async () => {
+    const { deps, send } = makeDeps();
+    deps.performers.getAccountById = vi.fn(async () => null);
+
+    const result = await decideParticipation(deps, "missing", "approved");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe("not_found");
+    expect(send).not.toHaveBeenCalled();
   });
 });

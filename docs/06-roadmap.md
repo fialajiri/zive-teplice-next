@@ -57,8 +57,16 @@ then one write path) prove the whole stack early rather than building layers in 
 - **Deliverable:** complete user lifecycle + emails, with registration gated by the admin toggle.
 
 ## Phase 6 — Design polish, a11y, SEO  ·  ~2–3 days
+- Improve the layout and propose a color pallette suitable for the festival branding.
+- Create cool landing page and use some image from latest festival there. You may download them from the s3/mongo and put them into assets.
+- Use some of the text/icon from the original site.
+- Update the "Kontakt" page with the new design and add the contact information from the original site.
+- In the Aktuality page, do not show all the news items, but only the ones from current year. Then make some kind of archive page for the older ones.
+- In the Galerie page, we are now showing only the small images, could we make it so that when you click on the image, it opens a bigger version of it in a lightbox?
+- In the Ucinkujici page, we are now showing all the performers, could we make it paginated with some filters, fulltext search on username and email might be nice too.
 - Finalize shadcn design system, responsive layouts, hero/home sections, gallery UX refinements,
   loading/skeleton states, empty/error states.
+- Do not forge the responsive design, make sure it looks good on mobile and tablet as well.
 - Accessibility pass (landmarks, headings, focus, reduced motion, form announcements).
 - Metadata API per route, Open Graph images, sitemap/robots, `next/font`.
 - Explicit CSP + security headers.

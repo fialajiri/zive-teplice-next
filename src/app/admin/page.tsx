@@ -33,6 +33,12 @@ export default async function AdminPage() {
           >
             Aktuality
           </Link>
+          <Link
+            href="/admin/ucinkujici"
+            className={buttonVariants({ variant: "outline" })}
+          >
+            Účinkující
+          </Link>
         </div>
       </section>
       <section className="flex flex-col gap-3">

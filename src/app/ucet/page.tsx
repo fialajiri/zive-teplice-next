@@ -6,6 +6,7 @@ import { getPerformerAccount } from "@/server/application/performers";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AccountProfileForm } from "@/components/auth/account-profile-form";
 import { ParticipationCard } from "@/components/auth/participation-card";
+import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { DeleteAccountButton } from "@/components/auth/delete-account-button";
 
 export const metadata: Metadata = {
@@ -67,6 +68,11 @@ export default async function AccountPage() {
                 image: account.value.image,
               }}
             />
+          </section>
+
+          <section className="flex flex-col gap-4">
+            <h2 className="text-lg font-medium">Změna hesla</h2>
+            <ChangePasswordForm />
           </section>
 
           <section className="border-destructive/30 flex flex-col gap-3 rounded-lg border p-4">

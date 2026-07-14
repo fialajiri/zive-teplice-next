@@ -173,44 +173,47 @@ extends). Legacy: `../zive-teplice-backend/{controllers/auth.js,controllers/user
 
 ## 6. Admin performer management + decide participation
 
-- [ ] Admin performer list use case (`listPerformersForAdmin` — includes email/phone/request, unlike the
-      public DTO). `application/participation.ts` — `decideParticipation(deps, id, "approved"|"rejected")`:
-      admin-only orchestration, sets the status, then **best-effort emails** the performer (gotcha #6).
-- [ ] `server/actions/participation.ts` — `decideParticipationAction`: `requireAdmin`; Zod the decision enum;
-      `revalidatePath("/admin/ucinkujici")` (+ `/ucinkujici`).
-- [ ] Admin UI `app/admin/ucinkujici/` — performers table (username, email, `request` badge) with
-      **Approve / Reject** buttons (pending rows) → `decideParticipationAction`, sonner feedback. Add
-      **Účinkující** to the admin nav.
+- [x] Admin performer list use case (`listPerformersForAdmin` — email/phone/request via `listForAdmin` repo
+      method). `application/participation.ts` — `decideParticipation(deps, id, "approved"|"rejected")`:
+      sets the status, then **best-effort emails** the performer — an email failure does NOT roll back the
+      decision (gotcha #6). *(9 participation tests incl. the best-effort case.)*
+- [x] `server/actions/participation.ts` — `decideParticipationAction`: `requireAdmin`; validates the decision
+      enum (`isDecision`); `revalidatePath("/admin/ucinkujici")` + `/ucinkujici`.
+- [x] Admin UI `app/admin/ucinkujici/` — performers table (username, email, phone, `request` badge) with
+      **Approve / Reject** buttons on pending rows → `decideParticipationAction`, sonner. **Účinkující** added
+      to the admin nav + dashboard.
 
 ## 7. Email infrastructure (`src/server/infrastructure/email/`, `Mailer` port)
 
-- [ ] `domain/mailer.ts` — `Mailer` port: `send({ to, subject, html }): Promise<Result<void>>` (typed failure,
+- [x] `domain/mailer.ts` — `Mailer` port: `send({ to, subject, html }): Promise<Result<void>>` (typed failure,
       no throwing across layers). Zero deps.
-- [ ] `infrastructure/email/mailer.ts` — `import "server-only"`; adapter for the chosen provider (Resend SDK
-      **or** nodemailer/Gmail). Fail loudly if env is missing; **never log token/recipient/PII** (gotcha #4/6).
-      Wire into `container.ts`.
-- [ ] Two templates (`infrastructure/email/templates.ts` — plain functions returning subject + HTML, Czech
-      copy from legacy): **(a) reset link** (`{resetUrl}`) and **(b) participation decision**
-      (`approved`/`rejected`). Build `resetUrl` from an env base URL + the reset route (never a hard-coded host).
+- [x] `infrastructure/email/mailer.ts` — `import "server-only"`; **Resend** adapter (`resend` dep). Never logs
+      token/recipient/PII — only a provider error name (gotcha #4/6). Wired into `container.ts`. **Construction
+      degrades (loud error on every send) instead of throwing** when env is missing, so the eagerly-built
+      container can't crash the app in dev without a key.
+- [x] Two templates (`infrastructure/email/templates.ts` — plain functions returning subject + HTML, Czech
+      copy from legacy, typos fixed): **(a) reset link** (`resetUrl`) and **(b) participation decision**.
+      `resetUrl` built from `AUTH_URL` + `/obnova-hesla/[token]` (never a hard-coded host).
 
 ## 8. Password flows (`requestPasswordReset` / `resetPassword` / `changePassword`)
 
-- [ ] Auth repo writes: `setResetToken(email, token, expiresAt): boolean`, `findByResetToken(token)`,
-      `setPassword(id, {hash, salt})` + `clearReset(id)`. (The `User` schema already declares `reset.{token,
-      tokenExpiration}` and `hash`/`salt` `select:false`.)
-- [ ] `application/password.ts`:
-      - `requestPasswordReset(deps, email)` — generate `randomBytes(32).toString("hex")`, store token + expiry
-        (`now + 1h`), email the link. **Always returns the same generic OK** (gotcha #4).
-      - `resetPassword(deps, token, password)` — find by token, **check expiry**, `hashPassword`, set hash/salt,
-        **clear `reset`**. Invalid/expired ⇒ typed error.
-      - `changePassword(deps, id, current, next)` — load with secret, `verifyLegacyPassword(current)`, then
-        `hashPassword(next)`. Wrong current ⇒ typed error.
-      All Zod (password **min 8** + confirm), `Result`, no auth in the use case.
-- [ ] `server/actions/password.ts` — `requestPasswordResetAction` (public), `resetPasswordAction` (public, by
-      token), `changePasswordAction` (`requireSelfOrAdmin`/session). Generic error messages; never echo tokens.
-- [ ] Public pages: `app/(auth)/obnova-hesla/page.tsx` (request form — email) and
-      `app/(auth)/obnova-hesla/[token]/page.tsx` (set-new-password form). Account **change-password** form in
-      `app/ucet/`. Link "Zapomenuté heslo?" from `/prihlaseni`.
+- [x] Auth repo writes: `findByIdWithSecret(id)`, `setResetToken(email, token, expiresAt): boolean`,
+      `findByResetToken(token)`, `setPassword(id, {hash, salt})` + `clearReset(id)`. (The `User` schema already
+      declares `reset.{token,tokenExpiration}` and `hash`/`salt` `select:false`.) *(Integration-tested.)*
+- [x] `application/password.ts` (crypto/clock/URL all injected for testability):
+      - `requestPasswordReset(deps, email)` — `generateResetToken()`, store token + expiry (`now + 1h`), email
+        the link. **Same generic OK** whether or not the email matches (gotcha #4); a **send failure surfaces a
+        retryable error** (gotcha #6).
+      - `resetPassword(deps, token, {password, confirm})` — find by token, **check expiry** (consume on
+        expiry), `hashPassword`, set hash/salt, **clear `reset`**. Invalid/expired ⇒ one generic typed error.
+      - `changePassword(deps, id, current, {password, confirm})` — `findByIdWithSecret`,
+        `verifyLegacyPassword(current)`, then `hashPassword(next)`. Wrong current ⇒ typed error.
+      All Zod (password **min 8** + confirm), `Result`, no auth. *(11 use-case tests.)*
+- [x] `server/actions/password.ts` — `requestPasswordResetAction` (public), `resetPasswordAction` (public, by
+      token), `changePasswordAction` (session-derived id). Generic messages; tokens never echoed.
+- [x] Public pages: `app/(auth)/obnova-hesla/page.tsx` (request form) and `.../[token]/page.tsx` (set-new
+      form → `/prihlaseni?obnova=ok`). **Change-password** form + section in `app/ucet/`. "Zapomenuté heslo?"
+      linked from `/prihlaseni`.
 
 ## 9. Security (carry-in + new)
 

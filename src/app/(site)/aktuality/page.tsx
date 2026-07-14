@@ -4,7 +4,8 @@ import { listNews } from "@/server/application/news";
 import { PageHeader } from "@/components/site/page-header";
 import { NewsCard } from "@/components/site/news-card";
 
-export const revalidate = 60;
+// Always server-rendered so admin changes appear immediately (no ISR window).
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Aktuality",

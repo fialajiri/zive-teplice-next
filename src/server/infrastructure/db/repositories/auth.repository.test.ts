@@ -75,4 +75,50 @@ describe("auth repository (integration)", () => {
     expect(doc).not.toHaveProperty("hash");
     expect(doc).not.toHaveProperty("salt");
   });
+
+  it("finds a user by id WITH hash/salt", async () => {
+    const byEmail = await repo.findByEmailWithSecret("admin@zive-teplice.cz");
+    const byId = await repo.findByIdWithSecret(byEmail!.id);
+    expect(byId).toEqual(byEmail);
+  });
+
+  it("sets, finds, and clears a reset token (single-use lifecycle)", async () => {
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const matched = await repo.setResetToken(
+      "admin@zive-teplice.cz",
+      "tok-123",
+      expiresAt,
+    );
+    expect(matched).toBe(true);
+
+    const found = await repo.findByResetToken("tok-123");
+    expect(found?.id).toEqual(expect.any(String));
+    expect(found?.expiresAt?.getTime()).toBe(expiresAt.getTime());
+
+    await repo.clearReset(found!.id);
+    expect(await repo.findByResetToken("tok-123")).toBeNull();
+  });
+
+  it("setResetToken returns false for an unknown email (no enumeration signal used)", async () => {
+    expect(
+      await repo.setResetToken("ghost@zive-teplice.cz", "x", new Date()),
+    ).toBe(false);
+  });
+
+  it("never matches an empty reset token", async () => {
+    expect(await repo.findByResetToken("")).toBeNull();
+  });
+
+  it("setPassword overwrites hash/salt", async () => {
+    const before = await repo.findByEmailWithSecret("admin@zive-teplice.cz");
+    const updated = await repo.setPassword(before!.id, {
+      hash: "newhash",
+      salt: "newsalt",
+    });
+    expect(updated).toBe(true);
+
+    const after = await repo.findByIdWithSecret(before!.id);
+    expect(after?.hash).toBe("newhash");
+    expect(after?.salt).toBe("newsalt");
+  });
 });

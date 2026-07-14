@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 import { container } from "@/server/container";
 import { getPerformer } from "@/server/application/performers";
 
-export const revalidate = 60;
+// Always server-rendered so admin changes appear immediately (no ISR window).
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

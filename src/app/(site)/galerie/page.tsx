@@ -4,7 +4,8 @@ import { listGalleries } from "@/server/application/gallery";
 import { PageHeader } from "@/components/site/page-header";
 import { GalleryCard } from "@/components/site/gallery-card";
 
-export const revalidate = 60;
+// Always server-rendered so admin changes appear immediately (no ISR window).
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Galerie",

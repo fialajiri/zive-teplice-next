@@ -55,6 +55,8 @@ export type CreatePerformerInput = {
 export type PerformerRepository = {
   list(): Promise<PerformerDto[]>;
   getById(id: string): Promise<PerformerDto | null>;
+  /** Admin view of all performers — includes email/phone/request. */
+  listForAdmin(): Promise<PerformerAccountDto[]>;
   // ── Write path ──────────────────────────────────────────────────────────────
   /** Persist a new performer (`role:"user"`, `request:"notsend"`); returns its id. */
   create(input: CreatePerformerInput): Promise<string>;

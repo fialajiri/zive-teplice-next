@@ -4,7 +4,8 @@ import { listPerformers } from "@/server/application/performers";
 import { PageHeader } from "@/components/site/page-header";
 import { PerformerCard } from "@/components/site/performer-card";
 
-export const revalidate = 60;
+// Always server-rendered so admin changes appear immediately (no ISR window).
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Účinkující",

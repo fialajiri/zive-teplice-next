@@ -5,7 +5,8 @@ import { getCurrentEvent } from "@/server/application/events";
 import { PageHeader } from "@/components/site/page-header";
 import { RichText } from "@/components/site/rich-text";
 
-export const revalidate = 60;
+// Always server-rendered so admin changes appear immediately (no ISR window).
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Program",

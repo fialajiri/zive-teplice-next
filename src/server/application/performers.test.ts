@@ -46,6 +46,7 @@ function makeDeps(overrides?: Partial<PerformerRepository>): {
   const performers: PerformerRepository = {
     list: vi.fn(),
     getById: vi.fn(),
+    listForAdmin: vi.fn(),
     create: vi.fn(),
     findByEmail: vi.fn(),
     existsByUsername: vi.fn(async () => false),

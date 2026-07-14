@@ -7,7 +7,8 @@ import { getNews } from "@/server/application/news";
 import { RichText } from "@/components/site/rich-text";
 import { formatCzechDate } from "@/lib/dates";
 
-export const revalidate = 60;
+// Always server-rendered so admin changes appear immediately (no ISR window).
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

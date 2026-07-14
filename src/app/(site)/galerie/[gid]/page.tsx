@@ -6,7 +6,8 @@ import { container } from "@/server/container";
 import { getGallery } from "@/server/application/gallery";
 import { PageHeader } from "@/components/site/page-header";
 
-export const revalidate = 60;
+// Always server-rendered so admin changes appear immediately (no ISR window).
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

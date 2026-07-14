@@ -5,7 +5,8 @@ import { getCurrentEvent } from "@/server/application/events";
 import { NewsCard } from "@/components/site/news-card";
 import { buttonVariants } from "@/components/ui/button";
 
-export const revalidate = 60;
+// Always server-rendered so admin changes appear immediately (no ISR window).
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const [newsResult, eventResult] = await Promise.all([

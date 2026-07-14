@@ -50,6 +50,14 @@ export async function verifyLegacyPassword(
  * 32-byte salt is stored as its hex STRING and fed to pbkdf2 as that string
  * (not decoded to bytes), exactly as legacy passport-local-mongoose did.
  */
+/**
+ * A single-use password-reset token: 32 random bytes as a hex string. Long
+ * enough to be unguessable and URL-safe (matches the legacy token shape).
+ */
+export function generateResetToken(): string {
+  return randomBytes(32).toString("hex");
+}
+
 export async function hashPassword(password: string): Promise<PasswordHash> {
   const salt = randomBytes(32).toString("hex");
 

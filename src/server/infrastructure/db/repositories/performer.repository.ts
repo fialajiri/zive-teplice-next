@@ -64,6 +64,13 @@ export function createPerformerRepository(): PerformerRepository {
       }).lean<UserDocument | null>();
       return doc ? toPerformerDto(doc) : null;
     },
+    async listForAdmin() {
+      await connectToDatabase();
+      const docs = await UserModel.find({ role: "user" })
+        .sort({ username: 1 })
+        .lean<UserDocument[]>();
+      return docs.map(toPerformerAccountDto);
+    },
     async create(input) {
       await connectToDatabase();
       const doc = await UserModel.create({

@@ -7,7 +7,8 @@ import { err, ok, type Result } from "@/server/domain/result";
 export type AuthFailure = { kind: "invalid_credentials" };
 
 export type AuthenticateDeps = {
-  users: AuthUserRepository;
+  // ISP: authentication only needs the email lookup, not the whole repo.
+  users: Pick<AuthUserRepository, "findByEmailWithSecret">;
   verifyPassword: (
     password: string,
     salt: string,
