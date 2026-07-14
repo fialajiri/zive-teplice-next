@@ -17,7 +17,7 @@ import { compressImage } from "@/components/admin/image-compression";
 
 export type { UploadedImage };
 
-type UploadPrefix = "news" | "gallery" | "program";
+type UploadPrefix = "news" | "gallery" | "program" | "performer";
 
 type ImageUploadProps = {
   id?: string;
@@ -25,6 +25,8 @@ type ImageUploadProps = {
   onChange: (value: UploadedImage | null) => void;
   /** Server-controlled destination prefix (defaults to "news"). */
   prefix?: UploadPrefix;
+  /** Accessible label for the preview image (defaults to a generic caption). */
+  alt?: string;
   ariaInvalid?: boolean;
   ariaDescribedby?: string;
 };
@@ -34,6 +36,7 @@ export function ImageUpload({
   value,
   onChange,
   prefix = "news",
+  alt = "Náhled nahraného obrázku",
   ariaInvalid,
   ariaDescribedby,
 }: ImageUploadProps) {
@@ -126,7 +129,7 @@ export function ImageUpload({
           {/* Unoptimized: local blob previews and just-uploaded objects aren't served through next/image. */}
           <Image
             src={preview}
-            alt="Náhled obrázku aktuality"
+            alt={alt}
             fill
             sizes="(min-width: 768px) 448px, 100vw"
             className="object-cover"

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { verifyLegacyPassword } from "./password";
+import { hashPassword, verifyLegacyPassword } from "./password";
 
 // Reference vector produced with the EXACT passport-local-mongoose defaults
 // (pbkdf2, 25000 iters, keylen 512, sha256, hex; salt used as the hex string
@@ -56,5 +56,40 @@ describe("verifyLegacyPassword", () => {
     expect(
       await verifyLegacyPassword(SAMPLE.password, SAMPLE.salt, "not-hex"),
     ).toBe(false);
+  });
+});
+
+describe("hashPassword", () => {
+  // The critical guarantee: a freshly hashed password verifies through the SAME
+  // legacy path, so new users need zero special-casing at login (Phase 5 §1).
+  it("produces a { salt, hash } that verifies via verifyLegacyPassword", async () => {
+    const password = "Nove-Heslo-2026!";
+    const { salt, hash } = await hashPassword(password);
+
+    expect(await verifyLegacyPassword(password, salt, hash)).toBe(true);
+  });
+
+  it("rejects a wrong password against a freshly derived hash", async () => {
+    const { salt, hash } = await hashPassword("Nove-Heslo-2026!");
+
+    expect(await verifyLegacyPassword("wrong-password", salt, hash)).toBe(
+      false,
+    );
+  });
+
+  it("emits the legacy hex format (64-char salt, 1024-char hash)", async () => {
+    const { salt, hash } = await hashPassword("Nove-Heslo-2026!");
+
+    // 32-byte salt and 512-byte keylen, both hex-encoded.
+    expect(salt).toMatch(/^[0-9a-f]{64}$/);
+    expect(hash).toMatch(/^[0-9a-f]{1024}$/);
+  });
+
+  it("uses a fresh random salt on every call", async () => {
+    const a = await hashPassword("same-password");
+    const b = await hashPassword("same-password");
+
+    expect(a.salt).not.toBe(b.salt);
+    expect(a.hash).not.toBe(b.hash);
   });
 });

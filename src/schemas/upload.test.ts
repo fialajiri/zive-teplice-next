@@ -79,6 +79,21 @@ describe("presignRequestSchema", () => {
     ).toBe(false);
   });
 
+  it("accepts a single file for the performer prefix but rejects two", () => {
+    expect(
+      presignRequestSchema.safeParse({
+        prefix: "performer",
+        files: [validFile],
+      }).success,
+    ).toBe(true);
+    expect(
+      presignRequestSchema.safeParse({
+        prefix: "performer",
+        files: [validFile, validFile],
+      }).success,
+    ).toBe(false);
+  });
+
   it("rejects an unknown prefix", () => {
     const result = presignRequestSchema.safeParse({
       prefix: "../secrets",

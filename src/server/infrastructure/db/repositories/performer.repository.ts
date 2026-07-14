@@ -35,5 +35,34 @@ export function createPerformerRepository(): PerformerRepository {
       }).lean<UserDocument | null>();
       return doc ? toPerformerDto(doc) : null;
     },
+    async create(input) {
+      await connectToDatabase();
+      const doc = await UserModel.create({
+        email: input.email,
+        username: input.username,
+        hash: input.hash,
+        salt: input.salt,
+        phoneNumber: input.phoneNumber,
+        description: input.description,
+        image: input.image,
+        // Server-set, never from the client (gotcha #3). The schema also defaults
+        // these, but we set them explicitly so intent is unmistakable.
+        role: "user",
+        request: "notsend",
+      });
+      return doc._id.toString();
+    },
+    async findByEmail(email) {
+      await connectToDatabase();
+      const doc = await UserModel.findOne({ email })
+        .select("_id")
+        .lean<{ _id: UserDocument["_id"] } | null>();
+      return doc ? { id: doc._id.toString() } : null;
+    },
+    async existsByUsername(username) {
+      await connectToDatabase();
+      const count = await UserModel.countDocuments({ username }).limit(1);
+      return count > 0;
+    },
   };
 }

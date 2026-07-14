@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { buttonVariants } from "@/components/ui/button";
+import { container } from "@/server/container";
+import { getRegistrationOpen } from "@/server/application/settings";
+import { RegistrationToggle } from "@/components/admin/registration-toggle";
 
 export const metadata: Metadata = {
   title: "Administrace",
@@ -9,6 +12,9 @@ export const metadata: Metadata = {
 
 export default async function AdminPage() {
   const session = await auth();
+  const registrationOpen = await getRegistrationOpen(
+    container.settingsRepository,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,6 +34,10 @@ export default async function AdminPage() {
             Aktuality
           </Link>
         </div>
+      </section>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium">Nastavení</h2>
+        <RegistrationToggle open={registrationOpen} />
       </section>
     </div>
   );

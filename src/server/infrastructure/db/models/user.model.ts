@@ -33,7 +33,9 @@ const userSchema = new Schema<UserDocument>(
     hash: { type: String, select: false },
     salt: { type: String, select: false },
     phoneNumber: { type: String, required: true },
-    description: { type: String, required: true },
+    // Optional at registration (decided Phase 5 §0) — default "" so a new user
+    // may omit it. Existing legacy rows already carry a value; unaffected.
+    description: { type: String, default: "" },
     type: { type: String }, // legacy/retired — no longer required or used
     role: { type: String, default: "user" },
     event: { type: Schema.Types.ObjectId, ref: "Event", default: null },

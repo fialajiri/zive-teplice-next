@@ -4,6 +4,7 @@ import { createGalleryRepository } from "./infrastructure/db/repositories/galler
 import { createEventRepository } from "./infrastructure/db/repositories/event.repository";
 import { createPerformerRepository } from "./infrastructure/db/repositories/performer.repository";
 import { createAuthUserRepository } from "./infrastructure/db/repositories/auth.repository";
+import { createSettingsRepository } from "./infrastructure/db/repositories/settings.repository";
 import { createS3Storage } from "./infrastructure/storage/s3";
 
 // Composition root: the single place that constructs concrete infrastructure and
@@ -15,5 +16,6 @@ export const container = {
   eventRepository: createEventRepository(),
   performerRepository: createPerformerRepository(),
   authUserRepository: createAuthUserRepository(),
+  settingsRepository: createSettingsRepository(),
   storage: createS3Storage(),
 };

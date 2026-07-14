@@ -1,8 +1,11 @@
 import "server-only";
-import { pbkdf2, timingSafeEqual } from "node:crypto";
+import { pbkdf2, randomBytes, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
 const pbkdf2Async = promisify(pbkdf2);
+
+// A `{ salt, hash }` pair, both hex strings, in the exact legacy storage format.
+export type PasswordHash = { salt: string; hash: string };
 
 // Legacy passport-local-mongoose defaults. These MUST match exactly or every
 // existing login fails. The salt is passed to pbkdf2 as the stored hex STRING
@@ -38,4 +41,25 @@ export async function verifyLegacyPassword(
   return (
     derived.length === expected.length && timingSafeEqual(derived, expected)
   );
+}
+
+/**
+ * Derive a fresh `{ salt, hash }` pair for a new or changed password, in the
+ * IDENTICAL legacy format so the result verifies through `verifyLegacyPassword`
+ * with zero special-casing — new users share the Phase 2 login path. A random
+ * 32-byte salt is stored as its hex STRING and fed to pbkdf2 as that string
+ * (not decoded to bytes), exactly as legacy passport-local-mongoose did.
+ */
+export async function hashPassword(password: string): Promise<PasswordHash> {
+  const salt = randomBytes(32).toString("hex");
+
+  const derived = await pbkdf2Async(
+    password,
+    salt,
+    PBKDF2.iterations,
+    PBKDF2.keylen,
+    PBKDF2.digest,
+  );
+
+  return { salt, hash: derived.toString("hex") };
 }

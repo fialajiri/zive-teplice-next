@@ -8,7 +8,10 @@ export const metadata: Metadata = {
   title: "Přihlášení",
 };
 
-type SearchParams = { callbackUrl?: string | string[] };
+type SearchParams = {
+  callbackUrl?: string | string[];
+  registrace?: string | string[];
+};
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -19,7 +22,9 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const callbackUrl = firstParam((await searchParams).callbackUrl);
+  const params = await searchParams;
+  const callbackUrl = firstParam(params.callbackUrl);
+  const registered = firstParam(params.registrace) === "ok";
 
   // Already signed in → skip the form.
   const session = await auth();
@@ -40,7 +45,24 @@ export default async function LoginPage({
           Přihlaste se ke svému účtu.
         </p>
       </div>
+
+      {registered ? (
+        <p
+          role="status"
+          className="border-border/60 bg-muted/40 rounded-lg border px-3 py-2 text-center text-sm"
+        >
+          Registrace proběhla úspěšně. Přihlaste se prosím svými údaji.
+        </p>
+      ) : null}
+
       <LoginForm callbackUrl={callbackUrl} />
+
+      <p className="text-muted-foreground text-center text-sm">
+        Chcete se přihlásit jako účinkující?{" "}
+        <Link href="/registrace" className="text-foreground underline">
+          Zaregistrovat se
+        </Link>
+      </p>
     </div>
   );
 }
