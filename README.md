@@ -38,8 +38,38 @@ Read the docs in order:
 
 ## Status
 
-**Phase 2 (auth) in progress** — Auth.js v5 Credentials login with legacy password compatibility is
-built and green (`npm run build`, `typecheck`, `lint`, `test` all pass; 33 tests):
+**Phase 3 (news CRUD + presigned uploads) built** — the full write + upload + revalidate loop is in
+place and green (`npm run build`, `typecheck`, `lint`, `test`, `format:check` all pass; 59 tests):
+
+- **Storage:** `domain/storage.ts` (`StoragePort` + pure key/URL helpers) → `infrastructure/storage/s3.ts`
+  (lazy, server-only `S3Client`) wired through the container. Presigns a **plain** direct-to-S3 `PUT`
+  (bucket-policy/CloudFront public read; opt into `x-amz-acl` via `S3_UPLOAD_ACL`), signs `Content-Type`,
+  and disables the SDK's default CRC32 checksum so presigned PUTs aren't rejected. Key shape preserved:
+  `news/<ISO>-<sanitized-name>`; stored `imageUrl` uses `S3_PUBLIC_HOST`.
+- **Presign route** (`app/api/uploads/presign`): admin-guarded, Zod-validates MIME (png/jpg/jpeg) + size
+  (≤8 MB) + per-prefix count **before** issuing any URL; generic errors.
+- **Write path:** `createNews`/`updateNews`/`deleteNews` use cases (`Result` + Zod, title 10–75,
+  non-empty message, image required on create) delete replaced/removed S3 objects; repository `create`/
+  `update`/`delete`; admin-guarded server actions sanitize rich-text HTML, re-validate the `imageKey`
+  prefix + host, and `revalidatePath` `/aktuality`, `/aktuality/[id]`, and `/`.
+- **Admin UI:** admin shell/nav, news table (edit + confirm-delete via native `<dialog>`), create/edit
+  pages with `NewsForm` (Tiptap rich-text editor with `immediatelyRender: false`, `ImageUpload` doing
+  presign → direct S3 PUT with a progress bar), sonner toasts, accessible labels/errors.
+- **Security carry-ins:** admin guards on update **and** delete (legacy had none), server-side MIME/size
+  validation before presign, key-prefix constraint, rich-text sanitize on write, Zod on every action.
+
+**Needs your action to run the upload end-to-end:** the S3 bucket must have a **CORS rule** allowing
+`PUT`/`GET` from `http://localhost:3000` (and the deployed origin) — apply
+[`docs/aws/s3-cors.json`](docs/aws/s3-cors.json) (S3 → bucket → Permissions → CORS, or
+`aws s3api put-bucket-cors --bucket <bucket> --cors-configuration file://docs/aws/s3-cors.json`). Set the
+real `AWS_*` / `S3_PUBLIC_HOST` in `.env.local`. Deferred: orphaned-object cleanup (presign+PUT can
+succeed then persist fail — delete/replace already removes old keys), and galleries/events/program
+(Phase 4, reusing this presign route + `ImageUpload` + action pattern).
+
+---
+
+**Phase 2 (auth)** — Auth.js v5 Credentials login with legacy password compatibility is
+built and green:
 
 - **Legacy password compat:** `verifyLegacyPassword` reproduces the `passport-local-mongoose`
   pbkdf2 exactly (25000 iters, keylen 512, sha256, hex, salt used as the hex string) with

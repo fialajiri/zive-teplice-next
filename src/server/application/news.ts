@@ -1,9 +1,19 @@
-import type { NewsDto, NewsRepository } from "@/server/domain/news";
+import { z } from "zod";
+import type {
+  CreateNewsInput,
+  ImageDto,
+  NewsDto,
+  NewsRepository,
+  UpdateNewsInput,
+} from "@/server/domain/news";
+import type { StoragePort } from "@/server/domain/storage";
 import {
   err,
   notFound,
   ok,
   unexpected,
+  validation,
+  type FieldErrors,
   type Result,
 } from "@/server/domain/result";
 
@@ -27,5 +37,126 @@ export async function getNews(
     return ok(news);
   } catch {
     return err(unexpected("Nepodařilo se načíst aktualitu."));
+  }
+}
+
+// ── Write path ───────────────────────────────────────────────────────────────
+// Pure and framework-free (no auth, no sanitize, no revalidate — those live in
+// the server action). Validates business rules, orchestrates the repository, and
+// keeps S3 consistent by deleting replaced/removed image objects.
+
+export type NewsWriteDeps = {
+  news: NewsRepository;
+  storage: StoragePort;
+};
+
+export type CreateNewsCommand = CreateNewsInput;
+export type UpdateNewsCommand = UpdateNewsInput;
+
+// Reject rich-text with no visible characters (e.g. the editor's empty "<p></p>").
+function hasVisibleText(html: string): boolean {
+  return html.replace(/<[^>]*>/g, "").trim().length > 0;
+}
+
+const imageInputSchema = z.object({
+  imageUrl: z.url(),
+  imageKey: z.string().trim().min(1),
+});
+
+const titleSchema = z
+  .string()
+  .trim()
+  .min(10, { error: "Titulek musí mít alespoň 10 znaků." })
+  .max(75, { error: "Titulek může mít nejvýše 75 znaků." });
+
+const messageSchema = z
+  .string()
+  .refine(hasVisibleText, { error: "Obsah aktuality nesmí být prázdný." });
+
+const createNewsSchema = z.object({
+  title: titleSchema,
+  message: messageSchema,
+  image: imageInputSchema,
+});
+
+const updateNewsSchema = z.object({
+  title: titleSchema,
+  message: messageSchema,
+  image: imageInputSchema.optional(),
+});
+
+function toFieldErrors(error: z.ZodError): FieldErrors {
+  const flat = z.flattenError(error);
+  const out: FieldErrors = {};
+  for (const [field, messages] of Object.entries(flat.fieldErrors)) {
+    if (Array.isArray(messages) && messages.length > 0) {
+      out[field] = messages as string[];
+    }
+  }
+  return out;
+}
+
+const INVALID_INPUT = "Zkontrolujte prosím zadané údaje.";
+
+export async function createNews(
+  deps: NewsWriteDeps,
+  input: CreateNewsCommand,
+): Promise<Result<{ id: string }>> {
+  const parsed = createNewsSchema.safeParse(input);
+  if (!parsed.success) {
+    return err(validation(INVALID_INPUT, toFieldErrors(parsed.error)));
+  }
+  try {
+    const id = await deps.news.create(parsed.data);
+    return ok({ id });
+  } catch {
+    return err(unexpected("Aktualitu se nepodařilo uložit."));
+  }
+}
+
+export async function updateNews(
+  deps: NewsWriteDeps,
+  id: string,
+  input: UpdateNewsCommand,
+): Promise<Result<{ id: string }>> {
+  const parsed = updateNewsSchema.safeParse(input);
+  if (!parsed.success) {
+    return err(validation(INVALID_INPUT, toFieldErrors(parsed.error)));
+  }
+  try {
+    const existing = await deps.news.getById(id);
+    if (!existing) return err(notFound("Aktualita nebyla nalezena."));
+
+    const updated = await deps.news.update(id, parsed.data);
+    if (!updated) return err(notFound("Aktualita nebyla nalezena."));
+
+    // Image replaced → remove the previous S3 object so it doesn't orphan.
+    const nextImage: ImageDto | undefined = parsed.data.image;
+    if (
+      nextImage &&
+      existing.image &&
+      existing.image.imageKey !== nextImage.imageKey
+    ) {
+      await deps.storage.deleteObject(existing.image.imageKey);
+    }
+    return ok({ id });
+  } catch {
+    return err(unexpected("Aktualitu se nepodařilo upravit."));
+  }
+}
+
+export async function deleteNews(
+  deps: NewsWriteDeps,
+  id: string,
+): Promise<Result<{ id: string }>> {
+  try {
+    const deleted = await deps.news.delete(id);
+    if (!deleted) return err(notFound("Aktualita nebyla nalezena."));
+    // Remove the document first, then its S3 image (a storage failure here
+    // leaves an orphaned object — the documented, acceptable gap for Phase 3).
+    if (deleted.image) await deps.storage.deleteObject(deleted.image.imageKey);
+    return ok({ id });
+  } catch {
+    return err(unexpected("Aktualitu se nepodařilo smazat."));
   }
 }

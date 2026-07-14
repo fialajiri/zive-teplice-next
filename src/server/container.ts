@@ -4,6 +4,7 @@ import { createGalleryRepository } from "./infrastructure/db/repositories/galler
 import { createEventRepository } from "./infrastructure/db/repositories/event.repository";
 import { createPerformerRepository } from "./infrastructure/db/repositories/performer.repository";
 import { createAuthUserRepository } from "./infrastructure/db/repositories/auth.repository";
+import { createS3Storage } from "./infrastructure/storage/s3";
 
 // Composition root: the single place that constructs concrete infrastructure and
 // hands the port interfaces to the presentation layer. Pages/actions import these
@@ -14,4 +15,5 @@ export const container = {
   eventRepository: createEventRepository(),
   performerRepository: createPerformerRepository(),
   authUserRepository: createAuthUserRepository(),
+  storage: createS3Storage(),
 };

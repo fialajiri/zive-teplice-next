@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 // Authenticated pages are never cached.
 export const dynamic = "force-dynamic";
@@ -22,5 +24,37 @@ export default async function AdminLayout({
     redirect("/ucet");
   }
 
-  return <>{children}</>;
+  return (
+    <div className="flex min-h-svh flex-col">
+      <header className="border-border/60 border-b">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
+          <div className="flex items-center gap-6">
+            <Link href="/admin" className="font-semibold tracking-tight">
+              Administrace
+            </Link>
+            <nav aria-label="Administrace" className="flex items-center gap-4">
+              <Link
+                href="/admin/aktuality"
+                className="text-muted-foreground hover:text-foreground text-sm"
+              >
+                Aktuality
+              </Link>
+            </nav>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="text-muted-foreground hover:text-foreground text-sm"
+            >
+              ← Web
+            </Link>
+            <LogoutButton />
+          </div>
+        </div>
+      </header>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
+        {children}
+      </main>
+    </div>
+  );
 }

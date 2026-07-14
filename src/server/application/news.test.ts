@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { listNews, getNews } from "./news";
+import {
+  listNews,
+  getNews,
+  createNews,
+  updateNews,
+  deleteNews,
+  type NewsWriteDeps,
+  type CreateNewsCommand,
+} from "./news";
 import type { NewsDto, NewsRepository } from "@/server/domain/news";
+import type { StoragePort } from "@/server/domain/storage";
 
 const sample: NewsDto = {
   id: "1",
@@ -15,6 +24,9 @@ function repoWith(overrides: Partial<NewsRepository>): NewsRepository {
   return {
     list: async () => [],
     getById: async () => null,
+    create: async () => "new-id",
+    update: async () => null,
+    delete: async () => null,
     ...overrides,
   };
 }
@@ -49,6 +61,170 @@ describe("getNews", () => {
 
   it("returns not_found when the item is missing", async () => {
     const result = await getNews(repoWith({ getById: async () => null }), "x");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe("not_found");
+  });
+});
+
+// ── Write path ───────────────────────────────────────────────────────────────
+
+function storageWith(overrides: Partial<StoragePort> = {}): StoragePort {
+  return {
+    presignUpload: async () => ({
+      uploadUrl: "",
+      key: "",
+      publicUrl: "",
+      requiredHeaders: {},
+    }),
+    deleteObject: async () => {},
+    ...overrides,
+  };
+}
+
+function depsWith(
+  repo: Partial<NewsRepository>,
+  storage: Partial<StoragePort> = {},
+): NewsWriteDeps {
+  return { news: repoWith(repo), storage: storageWith(storage) };
+}
+
+const validCreate: CreateNewsCommand = {
+  title: "Dostatečně dlouhý titulek",
+  message: "<p>Ahoj</p>",
+  image: { imageUrl: "https://cdn/news/x.jpg", imageKey: "news/x.jpg" },
+};
+
+const withImage = (imageKey: string): NewsDto => ({
+  ...sample,
+  image: { imageUrl: `https://cdn/${imageKey}`, imageKey },
+});
+
+describe("createNews", () => {
+  it("persists a valid item and returns the new id", async () => {
+    const result = await createNews(
+      depsWith({ create: async () => "abc" }),
+      validCreate,
+    );
+    expect(result).toEqual({ ok: true, value: { id: "abc" } });
+  });
+
+  it("rejects a too-short title with a field error", async () => {
+    const result = await createNews(depsWith({}), {
+      ...validCreate,
+      title: "Krátký",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.kind).toBe("validation");
+      if (result.error.kind === "validation") {
+        expect(result.error.fieldErrors?.title).toBeDefined();
+      }
+    }
+  });
+
+  it("rejects an empty (tags-only) message", async () => {
+    const result = await createNews(depsWith({}), {
+      ...validCreate,
+      message: "<p></p>",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.error.kind === "validation") {
+      expect(result.error.fieldErrors?.message).toBeDefined();
+    }
+  });
+
+  it("rejects a missing image on create", async () => {
+    const result = await createNews(depsWith({}), {
+      title: validCreate.title,
+      message: validCreate.message,
+    } as CreateNewsCommand);
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.error.kind === "validation") {
+      expect(result.error.fieldErrors?.image).toBeDefined();
+    }
+  });
+});
+
+describe("updateNews", () => {
+  it("deletes the old S3 object when the image is replaced", async () => {
+    let deletedKey: string | null = null;
+    const existing = withImage("news/old.jpg");
+    const deps = depsWith(
+      {
+        getById: async () => existing,
+        update: async () => withImage("news/new.jpg"),
+      },
+      {
+        deleteObject: async (key) => {
+          deletedKey = key;
+        },
+      },
+    );
+    const result = await updateNews(deps, "1", {
+      title: validCreate.title,
+      message: "<p>x</p>",
+      image: { imageUrl: "https://cdn/news/new.jpg", imageKey: "news/new.jpg" },
+    });
+    expect(result.ok).toBe(true);
+    expect(deletedKey).toBe("news/old.jpg");
+  });
+
+  it("does not touch storage when no new image is supplied", async () => {
+    let called = false;
+    const deps = depsWith(
+      {
+        getById: async () => withImage("news/keep.jpg"),
+        update: async () => withImage("news/keep.jpg"),
+      },
+      {
+        deleteObject: async () => {
+          called = true;
+        },
+      },
+    );
+    const result = await updateNews(deps, "1", {
+      title: validCreate.title,
+      message: "<p>x</p>",
+    });
+    expect(result.ok).toBe(true);
+    expect(called).toBe(false);
+  });
+
+  it("returns not_found for an unknown id", async () => {
+    const result = await updateNews(
+      depsWith({ getById: async () => null }),
+      "1",
+      {
+        title: validCreate.title,
+        message: "<p>x</p>",
+      },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe("not_found");
+  });
+});
+
+describe("deleteNews", () => {
+  it("removes the document and its S3 image", async () => {
+    let deletedKey: string | null = null;
+    const deps = depsWith(
+      { delete: async () => withImage("news/gone.jpg") },
+      {
+        deleteObject: async (key) => {
+          deletedKey = key;
+        },
+      },
+    );
+    const result = await deleteNews(deps, "1");
+    expect(result.ok).toBe(true);
+    expect(deletedKey).toBe("news/gone.jpg");
+  });
+
+  it("returns not_found when the item does not exist", async () => {
+    const result = await deleteNews(
+      depsWith({ delete: async () => null }),
+      "1",
+    );
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.kind).toBe("not_found");
   });
