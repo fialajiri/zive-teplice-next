@@ -38,8 +38,59 @@ Read the docs in order:
 
 ## Status
 
+**Phase 4 (galleries + events + program) built** — admin now manages the remaining content types
+end-to-end, reusing every Phase 3 primitive (presign route, `ImageUpload`, `RichTextEditor`,
+`requireAdmin`, `Result`+Zod use cases, `revalidatePath`). Green: `npm run build`, `typecheck`, `lint`,
+`test` (107 tests), `format:check` all pass.
+
+- **Client-side image compression:** photographer originals run 15–30 MB, so both uploaders now compress
+  in the browser **before** the presigned PUT (`components/admin/image-compression.ts`, native Canvas — no
+  dep). Decode uses `imageOrientation: "from-image"` (EXIF-correct rotation); output is downscaled to a
+  2560px longest edge and re-encoded to JPEG (~5 MB target, quality stepped down if it overshoots),
+  transparency flattened to white. Selection accepts originals up to **35 MB** (`MAX_ORIGINAL_BYTES`); the
+  server ceiling stays 8 MB and applies to the **compressed** result. Falls back to the original on any
+  failure / unsupported browser.
+- **Bulk upload:** compress the batch (throttled to 3 in flight for memory) → one presign request for the
+  compressed files → concurrency-capped (≈5) direct-to-S3 PUTs via a shared `runWithConcurrency` queue,
+  per-file status + a **two-phase progress bar** (count-based "Zpracovávám… X/N" during compression, then
+  "Nahrávám… %"). Partial failure is expected — only the succeeded refs are persisted and failed items stay
+  selectable for a one-click retry (never fails the whole batch). Successes are collected locally and
+  `onComplete` fires exactly once (avoids React Strict Mode's double-invoke of setState updaters).
+  `putToS3`/`requestPresign` lifted to `components/admin/upload-client.ts`; the presign route gained
+  `gallery: 150` / `program: 1` prefixes (no route change).
+- **Galleries:** `createGallery` (name 4–15, featured required), `appendGalleryImages` (ignores empties,
+  validates each ref), `removeGalleryImage`, and `deleteGallery` (removes the featured key **and every
+  photo key** from S3). Admin UI: list, create (redirects to manage), manage (bulk dropzone + per-photo
+  delete). **Carried in the missing admin guard on gallery delete** (legacy had none).
+- **Events + program:** the **"make current" transaction** (`createCurrent`) runs
+  `Event.updateMany(current→false)` → `Event.create(current:true)` → `User.updateMany(request:"notsend")`
+  in one `session.withTransaction` — fixes the legacy non-atomic sequence and the `current:"true"` string
+  bug. `updateEvent` fixes the legacy `/eid` no-op. Program is a single ref: `addProgram` (guarded to when
+  none exists) / `updateProgram` (deletes the old S3 image on replace). Admin UI: events table with
+  `current` badge, create (warns about the reset side-effects), edit + `EventProgramForm`.
+- **Shared image-ref validator** `isValidUploadedImage(url, key, prefix)` (`server/actions/image-ref.ts`)
+  now re-validates every persisted ref (news/gallery/program) server-side; program HTML is sanitized on
+  write; every mutating action `requireAdmin()` + Zod-validates.
+- **Tests:** presign schema (gallery ≤150 / program 1), gallery use cases + repo-write integration, the
+  event transaction on **`MongoMemoryReplSet`** (previous current flipped off, exactly one current, all
+  users reset; forced mid-transaction failure rolls back), and program add/update.
+
+**Deferred:**
+
+- **§9 gallery image optimization** (the 150-photo scale fix) is split into a **mini-phase 4.5**. Small/
+  medium galleries render fine today because `mappers.ts` rewrites the S3 origin to CloudFront on read; the
+  10–16 MB legacy originals still need on-the-fly CloudFront resize (Option A) **or** pre-generated Sharp
+  derivatives + backfill (Option B) before a full 150-image legacy gallery loads without `next/image`
+  optimizer timeouts. Decide the AWS approach, then wire `srcset`/variants into the gallery grid + lightbox.
+- **Orphaned S3 objects** — same documented gap as Phase 3 (presign+PUT can succeed then persist fail).
+  Delete/replace already removes old keys; a delete-on-failure or sweep is a later follow-up.
+- **Single-photo gallery lightbox** — the public `/galerie/[gid]` grid is unchanged (no lightbox yet);
+  that polish rides with §9/Phase 6.
+
+---
+
 **Phase 3 (news CRUD + presigned uploads) built** — the full write + upload + revalidate loop is in
-place and green (`npm run build`, `typecheck`, `lint`, `test`, `format:check` all pass; 59 tests):
+place and green (`npm run build`, `typecheck`, `lint`, `test`, `format:check` all pass):
 
 - **Storage:** `domain/storage.ts` (`StoragePort` + pure key/URL helpers) → `infrastructure/storage/s3.ts`
   (lazy, server-only `S3Client`) wired through the container. Presigns a **plain** direct-to-S3 `PUT`

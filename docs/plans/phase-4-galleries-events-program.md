@@ -13,6 +13,17 @@ endpoint maps + §3 event-state transaction), `docs/01-architecture.md` (data-fl
 `docs/06-roadmap.md` §Phase 4, and `docs/plans/phase-3-news-crud-uploads.md` (the pattern this extends).
 Legacy: `../zive-teplice-backend/{controllers/gallery.js,controllers/event.js,routes/gallery.js,routes/event.js,middleware/file-upload.js,models/{gallery,event,program}.js}`.
 
+## ✅ Status: CRUD complete (§1–8, §10–11) — 2026-07-14 · §9 deferred to mini-phase 4.5
+
+Galleries + events + program CRUD is built and green (`build`, `typecheck`, `lint`, `test` (98),
+`format:check`). Bulk upload (concurrency-capped, partial-failure tolerant), the atomic "make current"
+event transaction (verified on `MongoMemoryReplSet`, including rollback), and program add/update all work;
+every mutating action is `requireAdmin()`-guarded and re-validates image refs via the shared
+`isValidUploadedImage`. **§9 (gallery image optimization / the 150-photo scale fix) is deferred to a
+mini-phase 4.5** as the plan sanctions — small/medium galleries render via the existing S3→CloudFront
+read-rewrite; the legacy 10–16 MB originals still need CloudFront resize (Option A) or Sharp derivatives
+(Option B) + backfill. Also deferred: public gallery lightbox and the orphaned-object sweep.
+
 **Exit criteria (deliverable):**
 
 - An **admin** creates a gallery (name + featured image) → it appears on `/galerie`; opens it and
