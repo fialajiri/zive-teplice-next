@@ -45,11 +45,16 @@ then one write path) prove the whole stack early rather than building layers in 
 - **Deliverable:** full content management for galleries and events.
 
 ## Phase 5 — Performers + participation + password flows  ·  ~2–3 days
-- Registration (respecting registration-open flag), performer self-service profile edit + delete
+- **Admin-controlled registration toggle:** an admin opens/closes performer registration from the admin
+  UI. The public registration form + `registerUser` action respect the flag (closed → form hidden and
+  the server action rejects), server-enforced. Stored as a single app-settings flag (e.g. a pinned
+  `settings` document / one-row config) read by the registration RSC + action, flipped by an
+  admin-guarded `setRegistrationOpen` action. See resolved open question below.
+- Registration (respecting the registration-open flag), performer self-service profile edit + delete
   account, request participation (`pending`).
 - Admin approve/reject with **email** notification; request status flows.
 - Password: reset request (email link), reset-by-token, change password.
-- **Deliverable:** complete user lifecycle + emails.
+- **Deliverable:** complete user lifecycle + emails, with registration gated by the admin toggle.
 
 ## Phase 6 — Design polish, a11y, SEO  ·  ~2–3 days
 - Finalize shadcn design system, responsive layouts, hero/home sections, gallery UX refinements,
@@ -77,8 +82,10 @@ login, upload loop) in the first ~week.
 - **Critical flows:** component tests for login, news create, gallery upload.
 
 ## Open questions to resolve before/while building
-- Registration: is it permanently gated behind the "closed" flag, or event-driven? (drives
-  registration UX + an admin toggle).
+- ~~Registration: is it permanently gated behind the "closed" flag, or event-driven?~~ **Resolved:
+  admin-driven.** An admin opens/closes registration via an admin-UI toggle (an app-settings flag); the
+  public form + `registerUser` action honor it, server-enforced. Not tied to the event lifecycle. Built
+  in Phase 5.
 - Email provider final choice (Resend vs keep Gmail/nodemailer).
 - Any public URLs that must keep working (add `next.config` redirects from old `pages` paths).
 - Confirm exact Atlas collection names + whether more than one `current` event exists in prod data.
