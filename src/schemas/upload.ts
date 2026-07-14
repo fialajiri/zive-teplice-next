@@ -14,10 +14,12 @@ export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 // Server-controlled destinations. The client picks a known prefix from this list,
 // never a raw path — the key prefix is constrained here, not built from input.
-// Each prefix carries its own file-count cap (news = single image; gallery bulk
-// arrives in Phase 4).
+// Each prefix carries its own file-count cap: news + program are single-image;
+// gallery accepts a bulk batch of up to 150 (legacy `file-upload.js` cap).
 export const UPLOAD_MAX_FILES = {
   news: 1,
+  gallery: 150,
+  program: 1,
 } as const;
 
 export type UploadPrefix = keyof typeof UPLOAD_MAX_FILES;

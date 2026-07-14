@@ -39,5 +39,41 @@ export function createGalleryRepository(): GalleryRepository {
       ).lean<GalleryDocument | null>();
       return doc ? toGalleryDto(doc) : null;
     },
+    async create(input) {
+      await connectToDatabase();
+      const doc = await GalleryModel.create({
+        name: input.name,
+        featuredImage: input.featuredImage,
+      });
+      return doc._id.toString();
+    },
+    async appendImages(id, images) {
+      if (!isValidObjectId(id)) return null;
+      await connectToDatabase();
+      const doc = await GalleryModel.findByIdAndUpdate(
+        id,
+        { $push: { images: { $each: images } } },
+        { returnDocument: "after" },
+      ).lean<GalleryDocument | null>();
+      return doc ? toGalleryDto(doc) : null;
+    },
+    async removeImage(id, imageId) {
+      if (!isValidObjectId(id) || !isValidObjectId(imageId)) return null;
+      await connectToDatabase();
+      const doc = await GalleryModel.findByIdAndUpdate(
+        id,
+        { $pull: { images: { _id: imageId } } },
+        { returnDocument: "after" },
+      ).lean<GalleryDocument | null>();
+      return doc ? toGalleryDto(doc) : null;
+    },
+    async delete(id) {
+      if (!isValidObjectId(id)) return null;
+      await connectToDatabase();
+      const doc = await GalleryModel.findByIdAndDelete(
+        id,
+      ).lean<GalleryDocument | null>();
+      return doc ? toGalleryDto(doc) : null;
+    },
   };
 }

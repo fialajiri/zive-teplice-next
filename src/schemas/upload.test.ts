@@ -48,6 +48,37 @@ describe("presignRequestSchema", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts up to 150 files for the gallery prefix", () => {
+    const result = presignRequestSchema.safeParse({
+      prefix: "gallery",
+      files: Array.from({ length: 150 }, () => validFile),
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects more than 150 files for the gallery prefix", () => {
+    const result = presignRequestSchema.safeParse({
+      prefix: "gallery",
+      files: Array.from({ length: 151 }, () => validFile),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a single file for the program prefix but rejects two", () => {
+    expect(
+      presignRequestSchema.safeParse({
+        prefix: "program",
+        files: [validFile],
+      }).success,
+    ).toBe(true);
+    expect(
+      presignRequestSchema.safeParse({
+        prefix: "program",
+        files: [validFile, validFile],
+      }).success,
+    ).toBe(false);
+  });
+
   it("rejects an unknown prefix", () => {
     const result = presignRequestSchema.safeParse({
       prefix: "../secrets",

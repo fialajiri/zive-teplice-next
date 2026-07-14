@@ -12,6 +12,7 @@ import {
 import type { ImageDto } from "@/server/domain/news";
 import type { DomainError, FieldErrors } from "@/server/domain/result";
 import { sanitizeRichText } from "@/lib/sanitize-html";
+import { isValidUploadedImage } from "@/server/actions/image-ref";
 
 export type NewsActionResult =
   | { ok: true; id: string }
@@ -36,33 +37,6 @@ const FORBIDDEN: NewsActionResult = {
   ok: false,
   error: "Nedostatečná oprávnění.",
 };
-
-// Hosts an `imageUrl` may legitimately point at — the configured public host plus
-// the known S3/CloudFront origins already allow-listed in next.config.
-const ALLOWED_IMAGE_HOSTS = new Set(
-  [
-    process.env.S3_PUBLIC_HOST,
-    "d374dusjcsfayx.cloudfront.net",
-    "zive-teplice.s3.eu-central-1.amazonaws.com",
-  ].filter((host): host is string => Boolean(host)),
-);
-
-// A client only ever supplies a reference to an object it just uploaded via our
-// presign route. Re-validate it server-side so it can't be re-pointed at an
-// arbitrary key/host: the key must live under `news/`, the URL must be https on
-// an allow-listed host, and the URL must resolve to exactly that key.
-function isValidNewsImage(imageUrl: string, imageKey: string): boolean {
-  if (!imageKey.startsWith("news/") || imageKey.includes("..")) return false;
-  let url: URL;
-  try {
-    url = new URL(imageUrl);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== "https:") return false;
-  if (!ALLOWED_IMAGE_HOSTS.has(url.host)) return false;
-  return decodeURIComponent(url.pathname) === `/${imageKey}`;
-}
 
 const INVALID_IMAGE: NewsActionResult = {
   ok: false,
@@ -100,7 +74,7 @@ export async function createNewsAction(
   const imageUrl = String(input?.imageUrl ?? "");
   const imageKey = String(input?.imageKey ?? "");
 
-  if (!isValidNewsImage(imageUrl, imageKey)) return INVALID_IMAGE;
+  if (!isValidUploadedImage(imageUrl, imageKey, "news")) return INVALID_IMAGE;
 
   const result = await createNews(writeDeps(), {
     title,
@@ -128,7 +102,7 @@ export async function updateNewsAction(
   if (input?.imageUrl || input?.imageKey) {
     const imageUrl = String(input.imageUrl ?? "");
     const imageKey = String(input.imageKey ?? "");
-    if (!isValidNewsImage(imageUrl, imageKey)) return INVALID_IMAGE;
+    if (!isValidUploadedImage(imageUrl, imageKey, "news")) return INVALID_IMAGE;
     image = { imageUrl, imageKey };
   }
 

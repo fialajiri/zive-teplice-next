@@ -39,6 +39,18 @@ export default async function AdminLayout({
               >
                 Aktuality
               </Link>
+              <Link
+                href="/admin/galerie"
+                className="text-muted-foreground hover:text-foreground text-sm"
+              >
+                Galerie
+              </Link>
+              <Link
+                href="/admin/rocniky"
+                className="text-muted-foreground hover:text-foreground text-sm"
+              >
+                Ročníky
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4">
