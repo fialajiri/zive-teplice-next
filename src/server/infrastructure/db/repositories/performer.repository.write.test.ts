@@ -60,4 +60,80 @@ describe("performer repository (write, integration)", () => {
     expect(await repo.existsByUsername(input.username)).toBe(true);
     expect(await repo.existsByUsername("Neexistuje")).toBe(false);
   });
+
+  it("getAccountById exposes contact + participation fields", async () => {
+    const id = await repo.create({
+      ...input,
+      email: "ucet@ucinkujici.cz",
+      username: "Účet Test",
+    });
+    const account = await repo.getAccountById(id);
+    expect(account).toMatchObject({
+      email: "ucet@ucinkujici.cz",
+      username: "Účet Test",
+      phoneNumber: input.phoneNumber,
+      request: "notsend",
+    });
+  });
+
+  it("update changes profile fields and replaces the image", async () => {
+    const id = await repo.create({
+      ...input,
+      email: "edit@ucinkujici.cz",
+      username: "K úpravě",
+    });
+    const updated = await repo.update(id, {
+      username: "Upraveno",
+      phoneNumber: "608999888",
+      description: "Nový popis.",
+      image: {
+        imageUrl: "https://cdn/performer/new.jpg",
+        imageKey: "performer/new.jpg",
+      },
+    });
+    expect(updated?.username).toBe("Upraveno");
+    expect(updated?.image?.imageKey).toBe("performer/new.jpg");
+
+    const account = await repo.getAccountById(id);
+    expect(account?.phoneNumber).toBe("608999888");
+  });
+
+  it("update never touches role/request", async () => {
+    const id = await repo.create({
+      ...input,
+      email: "role@ucinkujici.cz",
+      username: "Role Test",
+    });
+    await repo.update(id, {
+      username: "Role Test 2",
+      phoneNumber: input.phoneNumber,
+      description: "",
+    });
+    const doc = await UserModel.findById(id).lean();
+    expect(doc?.role).toBe("user");
+    expect(doc?.request).toBe("notsend");
+  });
+
+  it("delete removes the document and returns it with its image key", async () => {
+    const id = await repo.create({
+      ...input,
+      email: "smazat@ucinkujici.cz",
+      username: "Ke smazání",
+    });
+    const deleted = await repo.delete(id);
+    expect(deleted?.image?.imageKey).toBe(input.image.imageKey);
+    expect(await repo.getById(id)).toBeNull();
+  });
+
+  it("returns null when updating or deleting an unknown id", async () => {
+    const missing = new mongoose.Types.ObjectId().toString();
+    expect(
+      await repo.update(missing, {
+        username: "Nikdo",
+        phoneNumber: "777000111",
+        description: "",
+      }),
+    ).toBeNull();
+    expect(await repo.delete(missing)).toBeNull();
+  });
 });

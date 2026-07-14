@@ -21,3 +21,22 @@ export async function requireAdmin(): Promise<
   }
   return ok({ id: session.user.id });
 }
+
+// The authenticated identity a self-or-admin write path may rely on.
+export type SelfIdentity = { id: string; isAdmin: boolean };
+
+// Per-record authorization: the action is allowed for the record's OWNER or an
+// admin (gotcha #5). Identity comes only from the trusted session — never a
+// client-supplied id. `targetId` is the record the caller is trying to touch.
+export async function requireSelfOrAdmin(
+  targetId: string,
+): Promise<Result<SelfIdentity, ForbiddenError>> {
+  const session = await auth();
+  if (!session) return err({ kind: "forbidden" });
+
+  const isAdmin = session.user.role === "admin";
+  if (!isAdmin && session.user.id !== targetId) {
+    return err({ kind: "forbidden" });
+  }
+  return ok({ id: session.user.id, isAdmin });
+}

@@ -147,26 +147,29 @@ extends). Legacy: `../zive-teplice-backend/{controllers/auth.js,controllers/user
 
 ## 4. Performer self-service (`updatePerformer` / `deletePerformer`)
 
-- [ ] `server/actions/guards.ts` — add **`requireSelfOrAdmin(targetId)`** (session exists AND session.id ===
-      targetId OR role==="admin"), returning the `Result` shape (gotcha #5).
-- [ ] Domain/repo writes: `update(id, input)` (username/phone/description + optional image), `delete(id):
-      PerformerDto | null` (returns the doc for its image key). `application/performers.ts` — `updatePerformer`
-      (Zod; **never** accepts `role`/`request`; delete old S3 key on image replace) and `deletePerformer`
-      (repo + `storage.deleteObject`). `Result`, no auth.
-- [ ] `server/actions/performers.ts` — `updatePerformerAction` / `deletePerformerAction`: `requireSelfOrAdmin`;
+- [x] `server/actions/guards.ts` — added **`requireSelfOrAdmin(targetId)`** (session exists AND session.id ===
+      targetId OR role==="admin"), returns `Result<SelfIdentity, ForbiddenError>` (gotcha #5).
+- [x] Domain/repo writes: `getAccountById` (contact+participation DTO), `update(id, input)`
+      (username/phone/description + optional image, scoped `role:"user"`), `delete(id): PerformerDto | null`
+      (scoped, returns the doc for its image key). `application/performers.ts` — `updatePerformer` (Zod;
+      **never** accepts `role`/`request`; username-uniqueness only on change; deletes old S3 key on image
+      replace) and `deletePerformer` (repo + `storage.deleteObject`). `Result`, no auth. *(6 use-case tests +
+      integration tests.)*
+- [x] `server/actions/performers.ts` — `updatePerformerAction` / `deletePerformerAction`: `requireSelfOrAdmin`;
       validate image ref (`performer`); `revalidatePath("/ucinkujici")`, `/ucinkujici/[id]`, `/ucet`.
-- [ ] `app/ucet/` — turn the placeholder into a real account area: profile view + **edit form** (reuse
-      `ImageUpload`), a **delete-account** confirm (native `<dialog>`), and a link to **change password** (§8).
+- [x] `app/ucet/` — real account area: profile **edit form** (reuse `ImageUpload prefix="performer"`) +
+      **delete-account** confirm (native `<dialog>`, signs out + hard-nav home after). Admins see an admin
+      link instead. *(Change-password link + participation card land in §5/§8.)*
 
 ## 5. Participation requests (`requestParticipation`)
 
-- [ ] Domain/repo: `setRequest(id, status)`; `application/participation.ts` — `requestParticipation(deps, id)`
-      sets `"pending"` (only from `notsend`/`rejected`; guard so an already-`pending`/`approved` user can't
-      spam). `decideParticipation` lives in §6.
-- [ ] `server/actions/participation.ts` — `requestParticipationAction`: **`requireSelfOrAdmin(id)`** (self
+- [x] Domain/repo: `setRequest(id, status)` (scoped `role:"user"`); `application/participation.ts` —
+      `requestParticipation(repo, id)` sets `"pending"` **only from `notsend`/`rejected`** (already-`pending`/
+      `approved` rejected as `validation`). `decideParticipation` lives in §6. *(5 use-case tests.)*
+- [x] `server/actions/participation.ts` — `requestParticipationAction`: **`requireSelfOrAdmin(id)`** (self
       requests); `revalidatePath("/ucet")`.
-- [ ] `app/ucet/` — a **participation card**: shows the current `request` status for the current ročník and a
-      **"request participation"** button (hidden/disabled unless the status allows). Copy explains the states.
+- [x] `app/ucet/` — a **participation card** (`ParticipationCard`): current status badge + per-state copy;
+      **"request participation"** button shown only when the status allows (`notsend`/`rejected`).
 
 ## 6. Admin performer management + decide participation
 

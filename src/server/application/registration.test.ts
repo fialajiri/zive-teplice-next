@@ -34,6 +34,10 @@ function makeDeps(overrides?: {
     create,
     findByEmail: overrides?.findByEmail ?? vi.fn(async () => null),
     existsByUsername: overrides?.existsByUsername ?? vi.fn(async () => false),
+    getAccountById: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    setRequest: vi.fn(),
   };
   const settings: SettingsRepository = {
     get: vi.fn(async () => ({
