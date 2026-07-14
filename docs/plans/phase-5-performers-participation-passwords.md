@@ -217,53 +217,67 @@ extends). Legacy: `../zive-teplice-backend/{controllers/auth.js,controllers/user
 
 ## 9. Security (carry-in + new)
 
-- [ ] Every mutating action authorizes server-side (`requireAdmin` / `requireSelfOrAdmin` / registration
-      flag); **never trust client `role`/`request`** (gotcha #3).
-- [ ] Registration flag enforced in the action, not just the RSC (gotcha #2).
-- [ ] Reset: no account enumeration; single-use, expiry-checked token; `timingSafeEqual`-style compare where
-      applicable; never log token/link/PII (gotcha #4).
-- [ ] New passwords use the frozen pbkdf2 format; `hash`/`salt` stay `select:false`; never returned to the
-      client.
-- [ ] Validate every uploaded image ref (`performer` prefix + host) before persisting; sanitize any rich-text
-      (description) on write if a rich editor is used.
-- [ ] **Consider basic rate-limiting** on `registerUserAction`, `requestPasswordResetAction`, and login
-      (brute-force / email-spam). If out of scope for the timebox, **record the gap** explicitly.
-- [ ] Remove any legacy `eval()`-on-env leftovers if surfaced; parse plain integers (per docs/03 §Security).
+- [x] Every mutating action authorizes server-side (`requireAdmin` / `requireSelfOrAdmin` / registration
+      flag); **never trust client `role`/`request`** (gotcha #3) — verified across registration, self-service,
+      participation, decisions, password actions.
+- [x] Registration flag enforced in the `registerUser` use case (server-side), not just the RSC — and in the
+      presign route for anonymous `performer` uploads (gotcha #2).
+- [x] Reset: **no account enumeration** (identical generic OK); **single-use, 1h-expiry** token consumed on
+      use/expiry; `verifyLegacyPassword` already uses `timingSafeEqual`; token/link/recipient never logged
+      (gotcha #4).
+- [x] New passwords use the frozen pbkdf2 format; `hash`/`salt` stay `select:false` and are never returned to
+      the client (DTOs exclude them).
+- [x] Every uploaded image ref validated (`performer` prefix + host via `isValidUploadedImage`) before
+      persisting; description is a **plain textarea** (no HTML) rendered as escaped text — no sanitizer needed.
+- [~] **Rate-limiting DEFERRED** (registration / reset / login). Needs a shared store (e.g. Upstash) that fits
+      the Phase 7 production setup. Recorded in README + docs/03 — NOT silently skipped.
+- [x] No `eval()`-on-env leftovers introduced; session/env values parse as plain integers (Phase 2 already
+      fixed this).
 
 ## 10. Tests
 
-- [ ] **`hashPassword` round-trip** (`password.test.ts`): output verifies via `verifyLegacyPassword`; wrong
-      password fails; salts vary. (The single most important new test — proves shared login path.)
-- [ ] **Registration use case** (mocked repo + settings + storage): rejects when the flag is **closed**;
-      rejects duplicate username/email; Zod failures (short password, mismatch, short phone); **success sets
-      `role:"user"` + `request:"notsend"` and calls `hashPassword`** (never persists a client role).
-- [ ] **Settings** use case + repo integration (`mongodb-memory-server`): absent ⇒ closed; `setRegistrationOpen`
-      upserts and toggles.
-- [ ] **Participation** use cases (mocked repo + mailer): `requestParticipation` only from allowed states;
+- [x] **`hashPassword` round-trip** (`password.test.ts`): verifies via `verifyLegacyPassword`; wrong password
+      fails; salts vary; legacy hex format asserted.
+- [x] **Registration use case**: rejects when the flag is **closed**; rejects duplicate username/email; Zod
+      failures (short password, mismatch, short phone, bad email); **success sets `role:"user"` +
+      `request:"notsend"` and calls `hashPassword`**, never persisting a client role. (9 tests.)
+- [x] **Settings** repo integration (`mongodb-memory-server`): absent ⇒ closed; `setRegistrationOpen` upserts,
+      toggles, and keeps exactly one document.
+- [x] **Participation** use cases (mocked repo + mailer): `requestParticipation` only from allowed states;
       `decideParticipation` sets status **and** attempts the email; an email failure does **not** fail the
-      decision (gotcha #6).
-- [ ] **Password reset** use cases (mocked repo + mailer): `requestPasswordReset` returns generic OK for a
-      **missing** email and still generic for a real one; `resetPassword` rejects an **expired**/unknown token,
-      succeeds + clears `reset` for a valid one; `changePassword` rejects a wrong current password.
-- [ ] **Performer write repo** integration (`mongodb-memory-server`): create; update replaces image; delete
-      removes the document + returns the image key; reset-token set/find/clear.
-- [ ] **Presign schema** (`upload.test.ts`): `performer` accepts 1, rejects 2.
-- [ ] *(Optional)* component tests: registration form (hidden when closed), reset-by-token form.
+      decision (gotcha #6). (9 tests.)
+- [x] **Password** use cases (`password.test.ts`, mocked repo + mailer, injected clock): reset generic OK for
+      missing **and** real email; retryable error on send failure; `resetPassword` rejects expired/unknown +
+      clears on expiry, succeeds + clears for a valid token; `changePassword` rejects a wrong current. (11.)
+- [x] **Performer write repo** integration: create (role/request server-set); update replaces image; delete
+      removes doc + returns image key; `getAccountById`/`setRequest`. **Auth repo** integration:
+      reset-token set/find/clear, `setPassword`, `findByIdWithSecret`.
+- [x] **Presign schema** (`upload.test.ts`): `performer` accepts 1, rejects 2.
+- [ ] *(Optional, not done)* component tests: registration form (hidden when closed), reset-by-token form.
+      Skipped — the use-case + integration layers carry the behavior; can add in Phase 6 with the a11y pass.
 
 ## 11. Verify & wrap up
 
+> **Manual E2E below needs a running app + live `RESEND_API_KEY`** (sandbox: send only from
+> `onboarding@resend.dev` to your own Resend account email until `zive-teplice.cz` is DNS-verified). The
+> presign-403 fix and immediate-updates (force-dynamic) fixes were already verified live during the build.
+
 - [ ] Admin closes registration → `/registrace` shows the closed notice **and** a direct `registerUserAction`
-      call is rejected. Admin opens it → the form registers a user.
+      call is rejected. Admin opens it → the form registers a user. *(Awaiting live check — logic covered by
+      the registration + settings tests.)*
 - [ ] The newly-registered user **logs in** via the existing Phase 2 flow (proves the shared pbkdf2 path).
+      *(Awaiting live check — proven at unit level by the `hashPassword`→`verifyLegacyPassword` round-trip.)*
 - [ ] Performer edits profile (image replaced → old S3 object gone) and deletes account (doc + S3 image gone);
-      a **different** non-admin user cannot edit/delete someone else's account (server-enforced).
-- [ ] Performer requests participation → `pending`; admin approves and rejects (two users) → statuses flip and
-      **decision emails arrive**.
-- [ ] Password reset: request → email link → set new password → **log in with the new password**; the token is
-      single-use and an expired token is refused. A missing email yields the same generic response. Logged-in
-      change-password works and rejects a wrong current password.
-- [ ] `build` / `typecheck` / `lint` / `test` green; `format:check` clean. Update `README.md` status → Phase 5;
-      note anything deferred (rate-limiting if skipped, session revocation on password change — see gotcha #8).
+      a **different** non-admin user cannot edit/delete someone else's account. *(Awaiting live check —
+      authz + S3 cleanup covered by `performers`/guard tests.)*
+- [ ] Participation `pending` → admin approve/reject → statuses flip and **decision emails arrive**.
+      *(Awaiting live check + live email.)*
+- [ ] Password reset request → email link → set new password → log in; single-use + expired refused; missing
+      email = same generic response; change-password rejects a wrong current. *(Awaiting live check + live
+      email; all logic covered by the 11 password tests.)*
+- [x] `build` / `typecheck` / `lint` / `test` (162) green; `format:check` clean. **README status → Phase 5**;
+      deferred items recorded (rate-limiting, session revocation on password change per gotcha #8, live email
+      pending domain verification).
 
 ## Out of scope (later phases)
 

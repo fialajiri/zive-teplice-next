@@ -38,6 +38,45 @@ Read the docs in order:
 
 ## Status
 
+**Phase 5 (performers + participation + password flows) built** — the full user lifecycle is live:
+register → auto-login → edit/delete profile → request participation → admin approves/rejects (emails) →
+forgot/reset/change password. Green: `npm run build`, `typecheck`, `lint`, `test` (162 tests),
+`format:check` all pass.
+
+- **Password crypto:** `hashPassword` reuses the frozen legacy pbkdf2 params (25 000 iters, keylen 512,
+  sha256, hex salt-as-string), so new users verify through the **same** `verifyLegacyPassword` path — zero
+  special-casing at login. `generateResetToken` = 32 random bytes hex.
+- **Registration toggle:** a single-doc `settings` collection (`registrationOpen`, absent ⇒ **closed**),
+  admin dashboard switch. The gate is **server-enforced** in the `registerUser` use case (and the presign
+  route), not just hidden UI.
+- **Registration:** `role:"user"` / `request:"notsend"` set server-side (never from the client), pbkdf2
+  hash in the legacy format, image required (`performer` presign prefix). Post-register **auto sign-in** with
+  a fallback to `/prihlaseni?registrace=ok`. Description optional (max 1000).
+- **Self-service:** `requireSelfOrAdmin` per-record guard; `/ucet` account area — profile edit (old S3 image
+  removed on replace), participation card, change-password, delete-account (removes doc + S3 image, signs
+  out). `update`/`delete` never touch `role`/`request`.
+- **Participation:** self requests `pending` (only from `notsend`/`rejected`); admin `/admin/ucinkujici`
+  table approves/rejects → status flips and the performer is **emailed** (best-effort — a mail failure never
+  rolls back the decision).
+- **Password flows:** reset request (**no account enumeration**, retryable if the mail fails), reset-by-token
+  (**single-use, 1h expiry**), logged-in change-password (verifies current). All new passwords use the frozen
+  format; crypto/clock/URL injected into the use cases for testability.
+- **Email:** `Mailer` port + **Resend** adapter (never logs token/recipient/PII; degrades to a loud error
+  without a key so the app still boots) + two Czech templates. Reset links built from `AUTH_URL`.
+- **Public reads are now `force-dynamic`** (was ISR `revalidate=60`) so admin changes appear immediately.
+
+**Deferred (Phase 5):**
+
+- **Rate-limiting** on registration / password-reset / login is **not** implemented (brute-force + email-spam
+  gap). It needs a shared store (e.g. Upstash) that fits better with the Phase 7 production setup — do it
+  there. Recorded, not silently skipped (docs/03 §Security, plan §9).
+- **Password change does not revoke other sessions** — Auth.js JWT sessions are stateless, so changing a
+  password won't sign out other devices. Acceptable for this app; not building session revocation (plan
+  gotcha #8).
+- **Live email deliverability pending domain verification** — code is complete; until `zive-teplice.cz` is
+  verified in Resend, sends run in sandbox (from `onboarding@resend.dev`, only to your own account email).
+  Verify DNS + flip `EMAIL_FROM` in Phase 7.
+
 **Phase 4 (galleries + events + program) built** — admin now manages the remaining content types
 end-to-end, reusing every Phase 3 primitive (presign route, `ImageUpload`, `RichTextEditor`,
 `requireAdmin`, `Result`+Zod use cases, `revalidatePath`). Green: `npm run build`, `typecheck`, `lint`,
