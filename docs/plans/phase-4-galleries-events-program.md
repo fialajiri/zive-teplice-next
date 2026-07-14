@@ -105,101 +105,106 @@ Also deferred: public gallery lightbox and the orphaned-object sweep.
 
 ## 0. Prerequisites
 
-- [ ] Phase 3 merged; S3 bucket + CORS + IAM + bucket policy already in place (`docs/aws/*`). Confirm the
-      IAM policy grants `s3:DeleteObject` (bulk delete needs it) — it does in `iam-uploads-policy.json`.
-- [ ] Confirm real Atlas data: **how many `current` events exist** (open question in `06-roadmap.md`) —
-      the transaction assumes at most one; if prod has several, the `updateMany` still normalizes them.
-- [ ] Decide the **image-optimization approach** for §9 up front (it affects the gallery display code):
-      on-the-fly CloudFront resize **vs** pre-generated Sharp derivatives. See §9 for the trade-off.
-- [ ] No new runtime deps for gallery/events. If §9 chooses the Sharp pipeline: add `sharp` (server-only)
-      + a backfill script; if CloudFront resize: infra only (no npm dep).
+- [x] Phase 3 merged; S3 bucket + CORS + IAM + bucket policy already in place (`docs/aws/*`). IAM policy
+      grants `s3:DeleteObject` (needed for bulk + gallery delete) — confirmed in `iam-uploads-policy.json`.
+- [x] Atlas `current`-event count **not** explicitly counted, but the transaction is defensive: the
+      `updateMany({current:true},{current:false})` normalizes **any** number of existing current events, so
+      the assumption "at most one" isn't required.
+- [x] **Image-optimization decision (revised):** rather than choose a §9 backend up front, we added
+      **client-side compression** (browser Canvas) so new uploads are web-sized at the source; the legacy
+      10–16 MB backfill (CloudFront resize vs Sharp) is deferred to **mini-phase 4.5**. See §9.
+- [x] No new runtime deps — client-side compression uses the native Canvas API (no `sharp`, no lib). A
+      Sharp pipeline + backfill would only be needed if 4.5 picks Option B.
 
 ## 1. Extend the presign route for the new prefixes (`src/schemas/upload.ts`)
 
-- [ ] Add to `UPLOAD_MAX_FILES`: `gallery: 150`, `program: 1` (news stays `1`). The Zod enum + per-prefix
-      count cap + the route + the S3 key builder all pick this up automatically — **no route change**.
-- [ ] Extend the presign **unit test** (`upload.test.ts`): accepts 150 files for `gallery`, rejects 151;
-      `program` accepts 1, rejects 2; unknown prefix still rejected.
-- [ ] Extract the Phase 3 image-ref validator (currently `isValidNewsImage`, hardcoded `news/`) into a
-      shared `server/actions/image-ref.ts` — `isValidUploadedImage(imageUrl, imageKey, prefix)` checking
-      the `<prefix>/` key, https, allow-listed host, and `pathname === "/" + key`. News/gallery/program
-      actions all use it.
+- [x] Added to `UPLOAD_MAX_FILES`: `gallery: 150`, `program: 1` (news stays `1`). Route + key builder
+      unchanged — the Zod enum + per-prefix cap pick it up automatically.
+- [x] Extended `upload.test.ts`: gallery accepts 150 / rejects 151; program accepts 1 / rejects 2; unknown
+      prefix still rejected.
+- [x] Extracted `isValidUploadedImage(imageUrl, imageKey, prefix)` into `server/actions/image-ref.ts`
+      (prefix-keyed, https, allow-listed host, `pathname === "/" + key`); news/gallery/program actions all
+      use it. Unit-tested in `image-ref.test.ts`.
 
 ## 2. Bulk uploader component (`src/components/admin/bulk-image-upload.tsx`, `'use client'`)
 
-- [ ] Dropzone + multi-file `<input>` (accept png/jpg/jpeg); client-side MIME/size pre-check per file;
-      cap the selection at 150 with a clear message (server re-validates).
-- [ ] One `POST /api/uploads/presign` with `{ prefix: "gallery", files: [...] }` → N presigned uploads.
-- [ ] PUT each file to S3 via the Phase 3 `putToS3` XHR helper (lift it to a shared module), run through a
-      **concurrency-capped queue** (≈5). Track per-file status (pending/uploading/done/error) + an
-      aggregate progress bar; render a thumbnail grid with per-item state.
-- [ ] On completion call `onComplete(succeeded: UploadedImage[], failed: File[])`; keep failed items
-      selectable for a one-click retry. Never block the whole batch on a single failure (gotcha #3).
+- [x] Multi-file `<input>` (accept png/jpg/jpeg); per-file client pre-check; selection capped at 150 with a
+      clear message (server re-validates). **Deviation:** selection accepts originals up to **35 MB** since
+      files are compressed client-side before upload (see §9 update / added below).
+- [x] **Added — client-side compression phase** (`components/admin/image-compression.ts`): each original is
+      decoded (EXIF-correct), downscaled to ~2560px and re-encoded to a ~5 MB JPEG **before** presigning,
+      throttled to 3 in flight for memory. Presign then signs the **compressed** sizes.
+- [x] One `POST /api/uploads/presign` with `{ prefix: "gallery", files: [...] }` → N presigned uploads.
+- [x] PUT each file to S3 via the shared `putToS3` XHR helper (lifted to `components/admin/upload-client.ts`
+      with `requestPresign`/`runWithConcurrency`), concurrency-capped queue (≈5). Per-file status
+      (pending/compressing/uploading/done/error) + a **two-phase progress bar** ("Zpracovávám… X/N" during
+      compression, then "Nahrávám… %"); thumbnail grid with per-item state.
+- [x] On completion calls `onComplete(succeeded: UploadedImage[])` (simplified from the planned
+      `failed: File[]` — failed items are kept in the component's own state for one-click retry instead).
+      Never blocks the whole batch on a single failure (gotcha #3). **Bug fixed:** `onComplete` was being
+      invoked inside a `setItems` updater → React Strict Mode double-invoke persisted the batch twice; now
+      successes are collected locally and `onComplete` fires exactly once.
 
 ## 3. Gallery domain + write use cases + repo (`src/server/`)
 
-- [ ] Extend `domain/gallery.ts`: `CreateGalleryInput` (`name`, `featuredImage: ImageDto`),
-      `GalleryImageInput` (`{imageUrl,imageKey}`), and add repo write methods: `create(input): id`,
-      `appendImages(id, images[]): GalleryDto | null`, `removeImage(id, imageId): GalleryDto | null`
-      (stretch — legacy had none, but the admin UX benefits), `delete(id): GalleryDto | null` (returns the
-      deleted doc so the use case can delete featured + all image keys). Read `GalleryDto` unchanged.
-- [ ] `infrastructure/db/repositories/gallery.repository.ts` — implement writes. `appendImages` `$push`es
-      the subdocs; `delete` uses `findByIdAndDelete().lean()` and returns the doc.
-- [ ] `application/gallery.ts` — `createGallery` (Zod: **name 4–15** per legacy; featured image required),
-      `appendGalleryImages` (validate each image ref; ignore empties), `deleteGallery` (orchestrate repo +
-      `storage.deleteObject` for **featured + every image key**), optional `removeGalleryImage` (delete the
-      one S3 object). All return `Result<T, DomainError>`, no auth (pure/testable).
+- [x] Extended `domain/gallery.ts`: `CreateGalleryInput`, `GalleryImageInput`, repo writes `create`,
+      `appendImages`, `removeImage` (implemented — not just stretch), `delete` (returns the deleted doc for
+      key cleanup). Read `GalleryDto` unchanged.
+- [x] `gallery.repository.ts` — writes implemented: `appendImages` `$push` (`$each`), `removeImage` `$pull`
+      by subdoc `_id`, `delete` = `findByIdAndDelete().lean()` returning the doc.
+- [x] `application/gallery.ts` — `createGallery` (name 4–15, featured required), `appendGalleryImages`
+      (validates each ref, ignores empties), `removeGalleryImage` (deletes the one S3 object), `deleteGallery`
+      (repo + `storage.deleteObject` for **featured + every image key**). All `Result<T, DomainError>`, no auth.
 
 ## 4. Gallery server actions (`src/server/actions/gallery.ts`)
 
-- [ ] `createGalleryAction` / `appendGalleryImagesAction` / `deleteGalleryAction`
-      (+ optional `removeGalleryImageAction`): `requireAdmin()` first; Zod-parse; validate each image ref
-      via `isValidUploadedImage(..., "gallery")`; call the use case; on success `revalidatePath("/galerie")`,
-      `revalidatePath(\`/galerie/${id}\`)`; return `{ ok }` | `{ ok:false, error, fieldErrors? }`.
+- [x] `createGalleryAction` / `appendGalleryImagesAction` / `removeGalleryImageAction` /
+      `deleteGalleryAction`: `requireAdmin()` first; Zod-parse; validate each image ref via
+      `isValidUploadedImage(..., "gallery")`; call the use case; on success revalidate `/galerie`,
+      `/galerie/[id]`, `/admin/galerie/[id]`; return `{ ok }` | `{ ok:false, error, fieldErrors? }`.
 
 ## 5. Gallery admin UI (`src/app/admin/galerie/`)
 
-- [ ] Add **Galerie** to the admin nav (`app/admin/layout.tsx`).
-- [ ] `app/admin/galerie/page.tsx` — gallery table/grid (name, featured thumb, photo count) with open +
-      delete (confirm dialog → `deleteGalleryAction`).
-- [ ] `app/admin/galerie/nova/page.tsx` — create (name input + single `ImageUpload` for featured →
-      `createGalleryAction`, then redirect to the gallery's manage page).
-- [ ] `app/admin/galerie/[gid]/page.tsx` — manage: shows existing photos (delete individual), the
-      `BulkImageUpload` dropzone → `appendGalleryImagesAction`, and an edit-name affordance.
-- [ ] sonner toasts, pending/disabled states, accessible labels + announced errors throughout.
+- [x] Added **Galerie** to the admin nav (`app/admin/layout.tsx`), plus **Ročníky**.
+- [x] `app/admin/galerie/page.tsx` — gallery table (name, featured thumb, photo count) with manage +
+      confirm-delete (`DeleteGalleryButton` → `deleteGalleryAction`).
+- [x] `app/admin/galerie/nova/page.tsx` — create (name + featured `ImageUpload` → `createGalleryAction`,
+      redirect to the manage page).
+- [x] `app/admin/galerie/[gid]/page.tsx` — manage: `GalleryManager` with the `BulkImageUpload` dropzone →
+      `appendGalleryImagesAction` and per-photo delete → `removeGalleryImageAction`. **Deviation:** an
+      edit-name affordance was **not** built (create-time only) — noted as a minor follow-up.
+- [x] sonner toasts, pending/disabled states, accessible labels + announced errors throughout.
 
 ## 6. Events + Program domain + write use cases + repo (`src/server/`)
 
-- [ ] Extend `domain/event.ts`: `CreateEventInput` (`title`, `year`), `UpdateEventInput`, `ProgramInput`
-      (`title`, `message`, `image?`), and repo writes: `createCurrent(input)` (**transactional**),
-      `update(id, input)`, `delete(id)`, `addProgram(eventId, program)`, `updateProgram(eventId, program)`.
-- [ ] `infrastructure/db/repositories/event.repository.ts` — implement writes. `createCurrent` opens a
-      session and runs the **transaction** (gotcha #5): `Event.updateMany({current:true},{current:false})`
-      → `Event.create([{title,year,current:true}],{session})` → `User.updateMany({},{request:"notsend"})`.
-      `addProgram` creates a `Program` + sets `event.program`; `updateProgram` edits the existing Program,
-      deleting the old image key when replaced. Guard add-vs-update by whether `event.program` is set.
-- [ ] `application/events.ts` — `createEvent` (Zod: **title 10–100**, **year** 4-digit number),
-      `updateEvent`, `deleteEvent`, `addProgram` / `updateProgram` (Zod title 10–100, sanitized non-empty
-      message; image required on add, optional on update; delete old key on image replace). `Result` +
-      no auth. Reset-users + current-flip live in the repo transaction, orchestrated by `createEvent`.
+- [x] Extended `domain/event.ts`: `CreateEventInput`, `UpdateEventInput`, `ProgramInput`, and `getById` +
+      repo writes `createCurrent` (**transactional**), `update`, `delete`, `addProgram`, `updateProgram`.
+- [x] `event.repository.ts` — `createCurrent` runs the **transaction** via `conn.startSession()` +
+      `session.withTransaction` (gotcha #5): `updateMany(current→false)` → `create([{…current:true}],{session})`
+      → `User.updateMany({},{request:"notsend"})`. `addProgram` creates a `Program` + sets `event.program`;
+      `updateProgram` returns the replaced image key so the use case cleans it up; `delete` also removes the
+      orphaned `Program` doc. Add-vs-update guarded by whether `event.program` is set.
+- [x] `application/events.ts` — `createEvent` (title 10–100, year 4-digit), `updateEvent` (fixes legacy
+      `/eid` no-op), `deleteEvent` (drops program image key), `addProgram` / `updateProgram` (sanitized
+      non-empty message; image required on add, optional on update; delete old key on replace, guarded so a
+      re-submitted same key isn't deleted). `Result` + no auth; `getEvent` read helper added.
 
 ## 7. Events/Program server actions (`src/server/actions/events.ts`)
 
-- [ ] `createEventAction` / `updateEventAction` / `deleteEventAction` / `addProgramAction` /
-      `updateProgramAction`: `requireAdmin()`; Zod-parse; `sanitizeRichText(message)` for program;
-      validate program image ref via `isValidUploadedImage(..., "program")`; call use case; on success
-      `revalidatePath("/program")`, `revalidatePath("/")` (home shows current event), and any admin
-      listing paths; return the standard result shape.
+- [x] `createEventAction` / `updateEventAction` / `deleteEventAction` / `addProgramAction` /
+      `updateProgramAction`: `requireAdmin()`; Zod-parse; `sanitizeRichText(message)` for program; validate
+      program image ref via `isValidUploadedImage(..., "program")`; call use case; on success revalidate
+      `/program`, `/` (home shows current event), `/admin/rocniky` + `/admin/rocniky/[id]`; standard result shape.
 
 ## 8. Events/Program admin UI (`src/app/admin/rocniky/`)
 
-- [ ] Add **Ročníky** to the admin nav.
-- [ ] `app/admin/rocniky/page.tsx` — events table (title, year, `current` badge) with edit + delete
-      (confirm). Creating an event **warns** it will become the current ročník and reset participation
-      requests (the transaction's side effects) before submit.
-- [ ] `app/admin/rocniky/novy/page.tsx` — create (title + year) → `createEventAction`.
-- [ ] `app/admin/rocniky/[eid]/page.tsx` — edit event + manage its **program**: an `EventProgramForm`
-      (title, `RichTextEditor`, single `ImageUpload`) that calls `addProgramAction` or `updateProgramAction`
+- [x] Added **Ročníky** to the admin nav.
+- [x] `app/admin/rocniky/page.tsx` — events table (title, year, `current` badge) with edit + confirm-delete
+      (`DeleteEventButton`). The create form **warns** it will become the current ročník and reset
+      participation requests before submit.
+- [x] `app/admin/rocniky/novy/page.tsx` — create (title + year) → `createEventAction`.
+- [x] `app/admin/rocniky/[eid]/page.tsx` — `EventForm` (edit) + `EventProgramForm` (title, `RichTextEditor`,
+      single `ImageUpload` with `prefix="program"`) that calls `addProgramAction` or `updateProgramAction`
       depending on whether a program already exists.
 
 ## 9. Gallery image optimization (decision + implementation)
@@ -222,49 +227,59 @@ originals, and backs up (`pending`) at scale. Pick one before wiring the display
   `ImageDto`/`GalleryImageDto`) and emit a real `srcset`. Needs a **one-time backfill script** for the
   existing objects. More control, more moving parts.
 
-- [ ] Implement the chosen option; update `GalleryImageDto` + the public gallery grid/lightbox to use the
-      responsive variants; verify a 150-image gallery loads without optimizer timeouts.
-- [ ] If it grows too large, split §9 into its own mini-phase (4.5) — the gallery CRUD in §1–8 works with
-      the current optimizer for small galleries; §9 is the scale fix.
+- [~] **Partial.** New uploads are compressed client-side (§2) so they need no server variants; the public
+      grid/lightbox + `GalleryImageDto` responsive-variant work for the **legacy** objects is **deferred to
+      4.5**. A 150-image *legacy* gallery is not yet verified to load without optimizer timeouts.
+- [x] Split into its own **mini-phase 4.5** — the §1–8 CRUD is done and works with the current optimizer for
+      newly-uploaded (now-compressed) galleries; the legacy backfill is the remaining scale fix.
 
 ## 10. Security (carry-in fixes)
 
-- [ ] **Add the missing admin guard on gallery delete** (legacy had none) via `requireAdmin()`.
-- [ ] Every mutating action `requireAdmin()` + Zod-validates input; never trust client `role`.
-- [ ] Validate every uploaded image ref (`gallery/`, `program/` prefix + host) before persisting.
-- [ ] **Sanitize program `message` HTML on write** (defense in depth; already sanitized on render).
-- [ ] Event "make current" is a **transaction** (data-integrity fix); fix the `current:"true"` string
-      query and the `/eid` update typo.
-- [ ] Never log creds, presigned URLs with signatures, or full session objects.
+- [x] **Added the missing admin guard on gallery delete** (legacy had none) via `requireAdmin()`.
+- [x] Every mutating action `requireAdmin()` + Zod-validates input; never trusts client `role`.
+- [x] Validates every uploaded image ref (`gallery/`, `program/` prefix + host) before persisting.
+- [x] **Sanitizes program `message` HTML on write** (defense in depth; already sanitized on render).
+- [x] Event "make current" is a **transaction** (data-integrity fix); queries `current:true` (boolean, not
+      the legacy `"true"` string) and `updateEvent` fixes the `/eid` no-op.
+- [x] Never logs creds, presigned URLs with signatures, or full session objects (generic error messages).
 
 ## 11. Tests
 
-- [ ] **Presign schema** (extend `upload.test.ts`): gallery ≤150 / reject 151; program 1 / reject 2.
-- [ ] **Gallery use cases** (mocked repo + storage): create (name 4–15, featured required); append ignores
-      empties + validates refs; **delete calls `storage.deleteObject` for featured + every image key**.
-- [ ] **Gallery repo write** integration (`mongodb-memory-server`): create; `appendImages` `$push`;
-      delete removes the document.
-- [ ] **Event transaction** — use-case unit test (mocked repo asserts the three ops are orchestrated) **and**
-      an integration test on **`MongoMemoryReplSet`** (gotcha #6): previous `current` flipped off, exactly
-      one `current:true`, all users' `request === "notsend"`; a forced mid-transaction error rolls back.
-- [ ] **Program add/update** (mocked repo + storage): add sets `event.program`; update with a new image
-      deletes the **old** key; add-vs-update guard.
-- [ ] *(Optional)* `BulkImageUpload` component test (renders, caps at 150, reports partial failure).
+- [x] **Presign schema** (`upload.test.ts`): gallery ≤150 / reject 151; program 1 / reject 2.
+- [x] **Gallery use cases** (`gallery.test.ts`, mocked repo + storage): create (name 4–15, featured
+      required); append ignores empties + validates refs; **delete calls `storage.deleteObject` for featured
+      + every image key**; `removeGalleryImage` deletes the one key.
+- [x] **Gallery repo write** integration (`gallery.repository.write.test.ts`, `mongodb-memory-server`):
+      create; `appendImages` `$push`; `removeImage` `$pull`; delete removes the document.
+- [x] **Event transaction** — use-case unit test (orchestration) **and** integration on **`MongoMemoryReplSet`**
+      (`event.repository.write.test.ts`, gotcha #6): previous `current` flipped off, exactly one `current:true`,
+      all users' `request === "notsend"`; a forced mid-transaction error rolls back.
+- [x] **Program add/update** (`events.test.ts`, mocked repo + storage): add-vs-update guard; update with a new
+      image deletes the **old** key; no storage touch when no image replaced; image required on add.
+- [~] **Added instead of the optional `BulkImageUpload` test:** `image-compression.test.ts` (pure
+      dimension-scaling + filename helpers). The Canvas encode + the component's upload flow can't run under
+      jsdom, so they are **verified in a real browser**, not in the unit suite. (107 tests total.)
 
 ## 12. Verify & wrap up
 
-- [ ] Admin creates a gallery + **bulk-uploads a >4.5 MB set of ≤150 photos** → all appear on
-      `/galerie/[gid]`; a forced single-file failure persists the rest and is reported.
-- [ ] Admin deletes the gallery → document **and** featured + all image S3 objects gone.
-- [ ] Admin creates an event → it's the **only** `current`, all users' `request` reset; edit + delete work;
-      the `/eid` update typo is fixed.
-- [ ] Admin adds a program, then updates it **replacing the image** → new image renders, **old S3 object
-      gone**; `/program` + home update immediately.
-- [ ] Logged-out / non-admin cannot open the admin UIs **and** cannot invoke the actions directly.
-- [ ] The 150-image gallery renders **without** optimizer timeouts (§9).
-- [ ] `build` / `typecheck` / `lint` / `test` green; `format:check` clean. Update `README.md` status →
-      Phase 4; note anything deferred (orphaned-object sweep, single-image gallery delete if skipped, §9
-      backfill if Option B).
+Automated verification (tests + build) is green; **most live browser/AWS steps below are still pending** a
+manual pass (the maintainer exercised gallery-create + bulk-upload during review — which is how the
+double-append bug surfaced — but the rest hasn't been click-tested end-to-end).
+
+- [~] Admin creates a gallery + bulk-uploads photos → they appear on `/galerie/[gid]`. **Verified** by the
+      maintainer (bulk upload works); the double-append bug found here is fixed. **Not yet re-verified:** the
+      new client-side compression on a 20–30 MB set, and the forced single-file-failure retry path.
+- [ ] Admin deletes the gallery → document **and** featured + all image S3 objects gone. *(Not live-verified;
+      unit test asserts `deleteObject` is called for featured + every key.)*
+- [~] Admin creates an event → **only** `current`, all users' `request` reset; edit + delete; `/eid` fixed.
+      *(Transaction proven on `MongoMemoryReplSet`; admin UI not walked end-to-end.)*
+- [~] Admin adds a program, then updates it **replacing the image** → new renders, **old S3 object gone**.
+      *(Use-case unit-tested; live UI not walked.)*
+- [x] Logged-out / non-admin cannot open the admin UIs (`layout` redirect) **or** invoke the actions
+      (every action + the presign route call `requireAdmin()` — server-enforced, not click-tested).
+- [ ] The 150-image **legacy** gallery renders without optimizer timeouts — **deferred to §9 / mini-phase 4.5**.
+- [x] `build` / `typecheck` / `lint` / `test` (107) green; `format:check` clean. `README.md` status → Phase 4;
+      deferred items noted (§9 legacy backfill, orphaned-object sweep, gallery edit-name, public lightbox).
 
 ## Out of scope (later phases)
 
