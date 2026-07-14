@@ -52,8 +52,24 @@ export type CreatePerformerInput = {
   image: ImageDto;
 };
 
+export type PerformerSearchParams = {
+  /** Case-insensitive match against username (public — email is never searched). */
+  query?: string;
+  /** Restrict to performers approved for the current ročník (request === "approved"). */
+  onlyApproved?: boolean;
+  page: number;
+  pageSize: number;
+};
+
+export type PerformerSearchResult = {
+  items: PerformerDto[];
+  total: number;
+};
+
 export type PerformerRepository = {
   list(): Promise<PerformerDto[]>;
+  /** Paginated, username-only search — the public /ucinkujici query shape. */
+  search(params: PerformerSearchParams): Promise<PerformerSearchResult>;
   getById(id: string): Promise<PerformerDto | null>;
   /** Admin view of all performers — includes email/phone/request. */
   listForAdmin(): Promise<PerformerAccountDto[]>;

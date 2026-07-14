@@ -10,11 +10,11 @@ import { PerformerResults } from "@/components/site/performer-results";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Účinkující",
-  description: "Účinkující na aktuálním ročníku Živé Teplice.",
+  title: "Všichni účinkující",
+  description: "Všichni účinkující, kteří kdy vystupovali na Živých Teplicích.",
 };
 
-const BASE_PATH = "/ucinkujici";
+const BASE_PATH = "/ucinkujici/vsichni";
 
 type SearchParams = { q?: string | string[]; page?: string | string[] };
 
@@ -22,7 +22,7 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export default async function PerformersPage({
+export default async function AllPerformersPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
@@ -34,31 +34,30 @@ export default async function PerformersPage({
 
   const result = await searchPerformers(container.performerRepository, {
     query,
-    onlyApproved: true,
     page,
   });
   const data = result.ok ? result.value : null;
 
   return (
     <>
-      <div className="flex items-start justify-between gap-4">
+      <Link
+        href="/ucinkujici"
+        className="text-muted-foreground hover:text-foreground text-sm"
+      >
+        ← Zpět na aktuální účinkující
+      </Link>
+      <div className="mt-4">
         <PageHeader
-          title="Účinkující"
-          description="Účinkující, kteří vystupují na aktuálním ročníku Živé Teplice."
+          title="Všichni účinkující"
+          description="Všichni účinkující, kteří kdy vystupovali na Živých Teplicích."
         />
-        <Link
-          href="/ucinkujici/vsichni"
-          className="text-primary shrink-0 text-sm hover:underline"
-        >
-          Všichni účinkující
-        </Link>
       </div>
       <PerformerSearchForm basePath={BASE_PATH} initialQuery={query} />
       <PerformerResults
         data={data}
         query={query}
         basePath={BASE_PATH}
-        emptyMessage="Zatím nejsou schváleni žádní účinkující pro aktuální ročník."
+        emptyMessage="Zatím zde nejsou žádní účinkující."
       />
     </>
   );

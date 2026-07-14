@@ -7,8 +7,45 @@ import type {
   PerformerAccountDto,
   PerformerDto,
   PerformerRepository,
+  PerformerSearchParams,
+  PerformerSearchResult,
 } from "@/server/domain/performer";
 import { toImageDto } from "./mappers";
+
+// Base Latin letter -> the Czech-alphabet diacritic variants a search should
+// also match (e.g. searching "skodova" must find "Škodová").
+const DIACRITIC_VARIANTS: Record<string, string> = {
+  a: "aá",
+  c: "cč",
+  d: "dď",
+  e: "eéě",
+  i: "ií",
+  n: "nň",
+  o: "oó",
+  r: "rř",
+  s: "sš",
+  t: "tť",
+  u: "uúů",
+  y: "yý",
+  z: "zž",
+};
+
+function stripDiacritics(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// Builds a regex pattern that matches `value` regardless of diacritics or
+// case — each letter expands to a character class of its accented variants.
+function diacriticInsensitivePattern(value: string): string {
+  const folded = stripDiacritics(value).toLowerCase();
+  return [...folded]
+    .map((char) => {
+      const variants = DIACRITIC_VARIANTS[char];
+      if (variants) return `[${variants}]`;
+      return char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    })
+    .join("");
+}
 
 function toPerformerDto(doc: UserDocument): PerformerDto {
   return {
@@ -54,6 +91,34 @@ export function createPerformerRepository(): PerformerRepository {
         .sort({ username: 1 })
         .lean<UserDocument[]>();
       return docs.map(toPerformerDto);
+    },
+    async search({
+      query,
+      onlyApproved,
+      page,
+      pageSize,
+    }: PerformerSearchParams): Promise<PerformerSearchResult> {
+      await connectToDatabase();
+      const filter: Record<string, unknown> = { role: "user" };
+      const trimmed = query?.trim();
+      if (trimmed) {
+        filter.username = {
+          $regex: diacriticInsensitivePattern(trimmed),
+          $options: "i",
+        };
+      }
+      if (onlyApproved) {
+        filter.request = "approved" satisfies ParticipationStatus;
+      }
+      const [docs, total] = await Promise.all([
+        UserModel.find(filter)
+          .sort({ username: 1 })
+          .skip((page - 1) * pageSize)
+          .limit(pageSize)
+          .lean<UserDocument[]>(),
+        UserModel.countDocuments(filter),
+      ]);
+      return { items: docs.map(toPerformerDto), total };
     },
     async getById(id) {
       if (!isValidObjectId(id)) return null;

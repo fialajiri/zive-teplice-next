@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { EventRepository } from "@/server/domain/event";
 import type {
   CreateNewsInput,
   ImageDto,
@@ -7,6 +8,7 @@ import type {
   UpdateNewsInput,
 } from "@/server/domain/news";
 import type { StoragePort } from "@/server/domain/storage";
+import { yearDateRange } from "@/lib/dates";
 import {
   err,
   notFound,
@@ -22,6 +24,52 @@ export async function listNews(
 ): Promise<Result<NewsDto[]>> {
   try {
     return ok(await repo.list());
+  } catch {
+    return err(unexpected("Nepodařilo se načíst aktuality."));
+  }
+}
+
+// "Current ročník" news = createdAt falling within the calendar year of the
+// current Event. Falls back to the real calendar year when no Event is marked
+// current, so the page still shows something sensible.
+export async function listCurrentYearNews(
+  newsRepo: NewsRepository,
+  eventRepo: EventRepository,
+): Promise<Result<NewsDto[]>> {
+  try {
+    const currentEvent = await eventRepo.getCurrent();
+    const year = currentEvent?.year ?? new Date().getFullYear();
+    const [start, end] = yearDateRange(year);
+    return ok(await newsRepo.listByDateRange(start, end));
+  } catch {
+    return err(unexpected("Nepodařilo se načíst aktuality."));
+  }
+}
+
+// Years with archived news, excluding the current ročník's year.
+export async function listArchiveYears(
+  newsRepo: NewsRepository,
+  eventRepo: EventRepository,
+): Promise<Result<number[]>> {
+  try {
+    const [years, currentEvent] = await Promise.all([
+      newsRepo.listDistinctYears(),
+      eventRepo.getCurrent(),
+    ]);
+    const currentYear = currentEvent?.year ?? new Date().getFullYear();
+    return ok(years.filter((year) => year !== currentYear));
+  } catch {
+    return err(unexpected("Nepodařilo se načíst archiv aktualit."));
+  }
+}
+
+export async function listNewsForYear(
+  repo: NewsRepository,
+  year: number,
+): Promise<Result<NewsDto[]>> {
+  try {
+    const [start, end] = yearDateRange(year);
+    return ok(await repo.listByDateRange(start, end));
   } catch {
     return err(unexpected("Nepodařilo se načíst aktuality."));
   }

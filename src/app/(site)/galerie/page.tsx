@@ -29,11 +29,14 @@ export default async function GalleryListPage() {
       ) : galleries.length === 0 ? (
         <p className="text-muted-foreground">Zatím zde nejsou žádné galerie.</p>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {galleries.map((gallery) => (
-            <GalleryCard key={gallery.id} gallery={gallery} />
-          ))}
-        </div>
+        <>
+          <h2 className="sr-only">Seznam galerií</h2>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {galleries.map((gallery) => (
+              <GalleryCard key={gallery.id} gallery={gallery} />
+            ))}
+          </div>
+        </>
       )}
     </>
   );

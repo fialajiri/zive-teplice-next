@@ -67,3 +67,63 @@ describe("news repository (integration)", () => {
     ).toBeNull();
   });
 });
+
+describe("news repository — by year (integration)", () => {
+  beforeAll(async () => {
+    await NewsModel.create([
+      {
+        title: "Rok 2020",
+        message: "<p>a</p>",
+        createdAt: new Date("2020-06-15T00:00:00.000Z"),
+      },
+      {
+        title: "Rok 2019 A",
+        message: "<p>a</p>",
+        createdAt: new Date("2019-03-01T00:00:00.000Z"),
+      },
+      {
+        title: "Rok 2019 B",
+        message: "<p>a</p>",
+        createdAt: new Date("2019-11-30T23:59:59.000Z"),
+      },
+    ]);
+  });
+
+  it("listByDateRange returns only items within [start, end)", async () => {
+    const items = await repo.listByDateRange(
+      "2019-01-01T00:00:00.000Z",
+      "2020-01-01T00:00:00.000Z",
+    );
+    expect(items).toHaveLength(2);
+    expect(items.map((i) => i.title).sort()).toEqual([
+      "Rok 2019 A",
+      "Rok 2019 B",
+    ]);
+  });
+
+  it("listByDateRange excludes items outside the range", async () => {
+    const items = await repo.listByDateRange(
+      "2020-01-01T00:00:00.000Z",
+      "2021-01-01T00:00:00.000Z",
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]?.title).toBe("Rok 2020");
+  });
+
+  it("listByDateRange returns an empty array when nothing matches", async () => {
+    const items = await repo.listByDateRange(
+      "1999-01-01T00:00:00.000Z",
+      "2000-01-01T00:00:00.000Z",
+    );
+    expect(items).toEqual([]);
+  });
+
+  it("listDistinctYears includes every year with at least one item, desc", async () => {
+    const years = await repo.listDistinctYears();
+    expect(years).toContain(2026);
+    expect(years).toContain(2020);
+    expect(years).toContain(2019);
+    const sorted = [...years].sort((a, b) => b - a);
+    expect(years).toEqual(sorted);
+  });
+});

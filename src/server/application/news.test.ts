@@ -5,10 +5,14 @@ import {
   createNews,
   updateNews,
   deleteNews,
+  listCurrentYearNews,
+  listArchiveYears,
+  listNewsForYear,
   type NewsWriteDeps,
   type CreateNewsCommand,
 } from "./news";
 import type { NewsDto, NewsRepository } from "@/server/domain/news";
+import type { EventDto, EventRepository } from "@/server/domain/event";
 import type { StoragePort } from "@/server/domain/storage";
 
 const sample: NewsDto = {
@@ -23,6 +27,8 @@ const sample: NewsDto = {
 function repoWith(overrides: Partial<NewsRepository>): NewsRepository {
   return {
     list: async () => [],
+    listByDateRange: async () => [],
+    listDistinctYears: async () => [],
     getById: async () => null,
     create: async () => "new-id",
     update: async () => null,
@@ -63,6 +69,108 @@ describe("getNews", () => {
     const result = await getNews(repoWith({ getById: async () => null }), "x");
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.kind).toBe("not_found");
+  });
+});
+
+function eventRepoWith(overrides: Partial<EventRepository>): EventRepository {
+  return {
+    list: async () => [],
+    getCurrent: async () => null,
+    getById: async () => null,
+    createCurrent: async () => "new-id",
+    update: async () => null,
+    delete: async () => null,
+    addProgram: async () => null,
+    updateProgram: async () => null,
+    ...overrides,
+  };
+}
+
+const currentEvent: EventDto = {
+  id: "e1",
+  title: "Živé Teplice",
+  year: 2026,
+  current: true,
+  program: null,
+};
+
+describe("listCurrentYearNews", () => {
+  it("queries the date range for the current event's year", async () => {
+    let seenRange: [string, string] | null = null;
+    const result = await listCurrentYearNews(
+      repoWith({
+        listByDateRange: async (start, end) => {
+          seenRange = [start, end];
+          return [sample];
+        },
+      }),
+      eventRepoWith({ getCurrent: async () => currentEvent }),
+    );
+    expect(result).toEqual({ ok: true, value: [sample] });
+    expect(seenRange).toEqual([
+      "2026-01-01T00:00:00.000Z",
+      "2027-01-01T00:00:00.000Z",
+    ]);
+  });
+
+  it("falls back to the real calendar year when no event is current", async () => {
+    let seenRange: [string, string] | null = null;
+    const thisYear = new Date().getFullYear();
+    await listCurrentYearNews(
+      repoWith({
+        listByDateRange: async (start, end) => {
+          seenRange = [start, end];
+          return [];
+        },
+      }),
+      eventRepoWith({ getCurrent: async () => null }),
+    );
+    expect(seenRange?.[0]).toBe(`${thisYear}-01-01T00:00:00.000Z`);
+  });
+});
+
+describe("listArchiveYears", () => {
+  it("excludes the current event's year from the archive list", async () => {
+    const result = await listArchiveYears(
+      repoWith({
+        listDistinctYears: async () => [2026, 2025, 2024],
+      }),
+      eventRepoWith({ getCurrent: async () => currentEvent }),
+    );
+    expect(result).toEqual({ ok: true, value: [2025, 2024] });
+  });
+
+  it("returns an unexpected error when the repository throws", async () => {
+    const result = await listArchiveYears(
+      repoWith({
+        listDistinctYears: async () => {
+          throw new Error("db down");
+        },
+      }),
+      eventRepoWith({}),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe("unexpected");
+  });
+});
+
+describe("listNewsForYear", () => {
+  it("queries the [start, end) range for the given year", async () => {
+    let seenRange: [string, string] | null = null;
+    const result = await listNewsForYear(
+      repoWith({
+        listByDateRange: async (start, end) => {
+          seenRange = [start, end];
+          return [sample];
+        },
+      }),
+      2019,
+    );
+    expect(result).toEqual({ ok: true, value: [sample] });
+    expect(seenRange).toEqual([
+      "2019-01-01T00:00:00.000Z",
+      "2020-01-01T00:00:00.000Z",
+    ]);
   });
 });
 

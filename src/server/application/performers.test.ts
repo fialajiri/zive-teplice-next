@@ -2,12 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import {
   updatePerformer,
   deletePerformer,
+  searchPerformers,
   type PerformerWriteDeps,
 } from "./performers";
 import type {
   PerformerAccountDto,
   PerformerDto,
   PerformerRepository,
+  PerformerSearchParams,
 } from "@/server/domain/performer";
 
 const EXISTING: PerformerAccountDto = {
@@ -45,6 +47,7 @@ function makeDeps(overrides?: Partial<PerformerRepository>): {
 
   const performers: PerformerRepository = {
     list: vi.fn(),
+    search: vi.fn(),
     getById: vi.fn(),
     listForAdmin: vi.fn(),
     create: vi.fn(),
@@ -120,6 +123,88 @@ describe("updatePerformer", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.kind).toBe("not_found");
+  });
+});
+
+function searchRepoWith(
+  overrides: Partial<PerformerRepository> = {},
+): PerformerRepository {
+  return {
+    list: vi.fn(),
+    search: vi.fn(async () => ({ items: [], total: 0 })),
+    getById: vi.fn(),
+    listForAdmin: vi.fn(),
+    create: vi.fn(),
+    findByEmail: vi.fn(),
+    existsByUsername: vi.fn(),
+    getAccountById: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    setRequest: vi.fn(),
+    ...overrides,
+  };
+}
+
+describe("searchPerformers", () => {
+  it("defaults to page 1 / pageSize 12 and passes the query through", async () => {
+    const captured: { params?: PerformerSearchParams } = {};
+    const repo = searchRepoWith({
+      search: vi.fn(async (params: PerformerSearchParams) => {
+        captured.params = params;
+        return { items: [], total: 0 };
+      }),
+    });
+
+    const result = await searchPerformers(repo, { query: "  Bread  " });
+
+    expect(result.ok).toBe(true);
+    expect(captured.params).toEqual({
+      query: "Bread",
+      onlyApproved: undefined,
+      page: 1,
+      pageSize: 12,
+    });
+  });
+
+  it("clamps an oversized pageSize to the max", async () => {
+    const captured: { params?: PerformerSearchParams } = {};
+    const repo = searchRepoWith({
+      search: vi.fn(async (params: PerformerSearchParams) => {
+        captured.params = params;
+        return { items: [], total: 0 };
+      }),
+    });
+
+    await searchPerformers(repo, { pageSize: 500 });
+
+    expect(captured.params?.pageSize).toBe(50);
+  });
+
+  it("passes onlyApproved through to the repository", async () => {
+    const captured: { params?: PerformerSearchParams } = {};
+    const repo = searchRepoWith({
+      search: vi.fn(async (params: PerformerSearchParams) => {
+        captured.params = params;
+        return { items: [], total: 0 };
+      }),
+    });
+
+    await searchPerformers(repo, { onlyApproved: true });
+
+    expect(captured.params?.onlyApproved).toBe(true);
+  });
+
+  it("returns an unexpected error when the repository throws", async () => {
+    const repo = searchRepoWith({
+      search: vi.fn(async () => {
+        throw new Error("db down");
+      }),
+    });
+
+    const result = await searchPerformers(repo, {});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe("unexpected");
   });
 });
 

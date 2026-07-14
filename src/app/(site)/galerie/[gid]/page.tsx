@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { container } from "@/server/container";
 import { getGallery } from "@/server/application/gallery";
 import { PageHeader } from "@/components/site/page-header";
+import { GalleryLightbox } from "@/components/site/gallery-lightbox";
 
 // Always server-rendered so admin changes appear immediately (no ISR window).
 export const dynamic = "force-dynamic";
@@ -15,7 +15,17 @@ export async function generateMetadata({
   const { gid } = await params;
   const result = await getGallery(container.galleryRepository, gid);
   if (!result.ok) return { title: "Galerie nenalezena" };
-  return { title: result.value.name ?? "Galerie" };
+  const gallery = result.value;
+  const name = gallery.name ?? "Galerie";
+  const description = `Fotogalerie ${name} — ${gallery.images.length} fotek z akce Živé Teplice.`;
+  const cover = gallery.featuredImage ?? gallery.images[0] ?? null;
+  return {
+    title: name,
+    description,
+    openGraph: cover
+      ? { title: name, description, images: [cover.imageUrl] }
+      : { title: name, description },
+  };
 }
 
 export default async function GalleryDetailPage({
@@ -45,23 +55,10 @@ export default async function GalleryDetailPage({
           Tato galerie zatím neobsahuje žádné fotografie.
         </p>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {gallery.images.map((image, index) => (
-            <li
-              key={image.id ?? image.imageKey}
-              className="bg-muted relative aspect-square overflow-hidden rounded-lg"
-            >
-              <Image
-                src={image.imageUrl}
-                alt={`${gallery.name ?? "Galerie"} — fotografie ${index + 1}`}
-                fill
-                sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-                className="object-cover"
-                loading="lazy"
-              />
-            </li>
-          ))}
-        </ul>
+        <GalleryLightbox
+          images={gallery.images}
+          galleryName={gallery.name ?? "Galerie"}
+        />
       )}
     </>
   );

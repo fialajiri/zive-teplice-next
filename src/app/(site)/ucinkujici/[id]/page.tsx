@@ -14,9 +14,18 @@ export async function generateMetadata({
   const { id } = await params;
   const result = await getPerformer(container.performerRepository, id);
   if (!result.ok) return { title: "Účinkující nenalezen" };
+  const performer = result.value;
+  const description = performer.description.slice(0, 160);
   return {
-    title: result.value.username,
-    description: result.value.description.slice(0, 160),
+    title: performer.username,
+    description,
+    openGraph: performer.image
+      ? {
+          title: performer.username,
+          description,
+          images: [performer.image.imageUrl],
+        }
+      : { title: performer.username, description },
   };
 }
 

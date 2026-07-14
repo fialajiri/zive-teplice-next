@@ -27,6 +27,48 @@ export async function listPerformers(
   }
 }
 
+const SEARCH_PAGE_SIZE = 12;
+const SEARCH_PAGE_SIZE_MAX = 50;
+
+export type PerformerSearchQuery = {
+  query?: string;
+  onlyApproved?: boolean;
+  page?: number;
+  pageSize?: number;
+};
+
+export type PerformerSearchPage = {
+  items: PerformerDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export async function searchPerformers(
+  repo: PerformerRepository,
+  params: PerformerSearchQuery,
+): Promise<Result<PerformerSearchPage>> {
+  const page =
+    Number.isInteger(params.page) && params.page! > 0 ? params.page! : 1;
+  const pageSize =
+    Number.isInteger(params.pageSize) && params.pageSize! > 0
+      ? Math.min(params.pageSize!, SEARCH_PAGE_SIZE_MAX)
+      : SEARCH_PAGE_SIZE;
+  const query = params.query?.trim() || undefined;
+
+  try {
+    const { items, total } = await repo.search({
+      query,
+      onlyApproved: params.onlyApproved,
+      page,
+      pageSize,
+    });
+    return ok({ items, total, page, pageSize });
+  } catch {
+    return err(unexpected("Nepodařilo se načíst účinkující."));
+  }
+}
+
 export async function getPerformer(
   repo: PerformerRepository,
   id: string,

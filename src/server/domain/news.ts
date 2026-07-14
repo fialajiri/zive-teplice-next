@@ -28,6 +28,10 @@ export type UpdateNewsInput = {
 
 export type NewsRepository = {
   list(): Promise<NewsDto[]>;
+  /** createdAt within [start, end) — ISO bounds, start inclusive/end exclusive. */
+  listByDateRange(start: string, end: string): Promise<NewsDto[]>;
+  /** Distinct years with at least one item, most recent first. */
+  listDistinctYears(): Promise<number[]>;
   getById(id: string): Promise<NewsDto | null>;
   /** Persist a new item; returns its new id. */
   create(input: CreateNewsInput): Promise<string>;

@@ -19,6 +19,32 @@ const imageHosts = [
     : []),
 ];
 
+// Content-Security-Policy — curated static policy (see docs/plans/phase-6
+// gotcha #6). Next injects some inline <style>/<script>, so 'unsafe-inline'
+// is required for script-src/style-src until a nonce-based approach replaces
+// this. Enforced in production, verified violation-free against a `next
+// build && next start` run (dialogs, debounced search, forms). Kept as
+// Report-Only in dev: Turbopack's HMR runtime relies on `eval`, which a
+// strict script-src would otherwise break.
+const imageOrigins = imageHosts.map((hostname) => `https://${hostname}`);
+const isProduction = process.env.NODE_ENV === "production";
+const cspHeaderKey = isProduction
+  ? "Content-Security-Policy"
+  : "Content-Security-Policy-Report-Only";
+
+const cspDirectives = [
+  `default-src 'self'`,
+  `img-src 'self' data: ${imageOrigins.join(" ")}`,
+  `script-src 'self' 'unsafe-inline'`,
+  `style-src 'self' 'unsafe-inline'`,
+  `font-src 'self' data:`,
+  `connect-src 'self'`,
+  `frame-ancestors 'none'`,
+  `base-uri 'self'`,
+  `form-action 'self'`,
+  `object-src 'none'`,
+];
+
 const nextConfig: NextConfig = {
   // Mongoose is a server-only Node package; keep it out of the bundler so its
   // dynamic requires and native optional deps resolve at runtime.
@@ -40,6 +66,14 @@ const nextConfig: NextConfig = {
           {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+          {
+            key: cspHeaderKey,
+            value: cspDirectives.join("; "),
           },
         ],
       },

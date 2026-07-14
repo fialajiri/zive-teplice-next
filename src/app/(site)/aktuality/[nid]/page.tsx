@@ -6,6 +6,7 @@ import { container } from "@/server/container";
 import { getNews } from "@/server/application/news";
 import { RichText } from "@/components/site/rich-text";
 import { formatCzechDate } from "@/lib/dates";
+import { htmlToExcerpt } from "@/lib/html";
 
 // Always server-rendered so admin changes appear immediately (no ISR window).
 export const dynamic = "force-dynamic";
@@ -16,9 +17,14 @@ export async function generateMetadata({
   const { nid } = await params;
   const result = await getNews(container.newsRepository, nid);
   if (!result.ok) return { title: "Aktualita nenalezena" };
+  const news = result.value;
+  const description = news.message ? htmlToExcerpt(news.message) : news.title;
   return {
-    title: result.value.title,
-    description: result.value.title,
+    title: news.title,
+    description,
+    openGraph: news.image
+      ? { title: news.title, description, images: [news.image.imageUrl] }
+      : { title: news.title, description },
   };
 }
 

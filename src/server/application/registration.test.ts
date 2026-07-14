@@ -30,6 +30,7 @@ function makeDeps(overrides?: {
 
   const performers: PerformerRepository = {
     list: vi.fn(),
+    search: vi.fn(),
     getById: vi.fn(),
     listForAdmin: vi.fn(),
     create,

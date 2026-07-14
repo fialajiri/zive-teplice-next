@@ -38,10 +38,53 @@ Read the docs in order:
 
 ## Status
 
-**Phase 5 (performers + participation + password flows) built** — the full user lifecycle is live:
-register → auto-login → edit/delete profile → request participation → admin approves/rejects (emails) →
-forgot/reset/change password. Green: `npm run build`, `typecheck`, `lint`, `test` (162 tests),
+**Phase 6 (design polish, a11y, SEO) built** — the app now looks and feels like the festival, with a
+brand palette/typography, real landing/Kontakt pages, a gallery lightbox, performer search, an a11y
+pass, SEO metadata, and CSP. Green: `npm run build`, `typecheck`, `lint`, `test` (184 tests),
 `format:check` all pass.
+
+- **Brand system:** OKLCH palette (green/amber, light + dark, WCAG AA-checked) replaces the achromatic
+  shadcn default, kept under the same token names so every existing component (including admin/auth
+  shells) recolors for free. Roboto (body) + Archivo Black (headings) via `next/font/google`, plus a
+  light/dark theme toggle (`next-themes`, hydration-safe via `useSyncExternalStore`).
+- **Site chrome:** redesigned header with an accessible mobile nav (Base UI `Dialog`, keyboard + focus
+  trap, breakpoint at `lg` after a real tablet-width overflow bug), and a footer with real contact/social
+  links.
+- **Landing + Kontakt:** a real hero (compressed festival photos pulled from the live S3 galleries, ≤310
+  KB), festival intro copy + icons, and Kontakt's real address/phone/e-mail/socials (no map — none existed
+  on the legacy site).
+- **Aktuality:** `/aktuality` now shows only the **current ročník's** news (`createdAt` matched to
+  `Event.getCurrent().year` — no schema change) with a year-card **archive** at `/aktuality/archiv[/[year]]`.
+- **Galerie:** a full lightbox (Base UI `Dialog`, arrow-key + on-screen prev/next, Esc, focus trap) layered
+  over the existing thumbnail grid.
+- **Účinkující:** split into `/ucinkujici` (current ročník — `request:"approved"`, reusing the existing
+  participation field) and `/ucinkujici/vsichni` (everyone), both with **debounced live search** (username,
+  **diacritic- and case-insensitive** via a Mongo regex character-class expansion) and cursor-based
+  pagination — paginated at the DB, never over-fetched.
+- **Loading/empty/error states:** skeletons for every detail route (`DetailSkeleton`, two layouts), the
+  existing list-page skeleton reused elsewhere; Czech empty/error copy throughout.
+- **A11y:** fixed heading-order skips (card grids jumped `h1`→`h3`; added `sr-only` `h2`s), a
+  `prefers-reduced-motion` kill switch, one palette contrast failure fixed (button text 4.43:1 → 5.02:1),
+  visible focus rings verified by keyboard, and the last hardcoded English UI strings (dialog close,
+  pagination) translated.
+- **SEO:** per-route `generateMetadata` with real excerpts + OG images (news/gallery/performer detail),
+  root-level OG/Twitter defaults, `app/sitemap.ts` (195 URLs: static + every news/gallery/performer/archive
+  year) and `app/robots.ts` — canonical origin from `AUTH_URL`, never hard-coded.
+- **CSP:** a curated policy is **enforced** in production (`Content-Security-Policy`), verified
+  violation-free against a real `next build && next start` run across dialogs, forms, and debounced
+  navigation. Dev stays **Report-Only** — Turbopack's HMR runtime needs `eval`, which a strict `script-src`
+  would otherwise break. `Permissions-Policy` added; existing headers unchanged.
+
+**Deferred (Phase 6):**
+
+- **Mini-phase 4.5 (gallery image optimization)** — legacy 10–16 MB CloudFront originals occasionally
+  **500** Next's built-in image optimizer (observed live on `/galerie` during this phase). The lightbox UI
+  ships against `next/image` regardless; the fix (CloudFront resize vs. Sharp derivatives + backfill) is
+  its own phase, as already scoped.
+- **Rate-limiting** (registration/reset/login) — carried over from Phase 5, still deferred to Phase 7
+  (needs a shared store).
+- **Dynamic OG images** (`next/og`) — shipped static per-page OG (real photos/excerpts) instead; fully
+  generated OG images were explicitly "if time permits" in the phase plan.
 
 - **Password crypto:** `hashPassword` reuses the frozen legacy pbkdf2 params (25 000 iters, keylen 512,
   sha256, hex salt-as-string), so new users verify through the **same** `verifyLegacyPassword` path — zero

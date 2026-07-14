@@ -25,6 +25,23 @@ export function createNewsRepository(): NewsRepository {
         .lean<NewsDocument[]>();
       return docs.map(toNewsDto);
     },
+    async listByDateRange(start, end) {
+      await connectToDatabase();
+      const docs = await NewsModel.find({
+        createdAt: { $gte: new Date(start), $lt: new Date(end) },
+      })
+        .sort({ createdAt: -1 })
+        .lean<NewsDocument[]>();
+      return docs.map(toNewsDto);
+    },
+    async listDistinctYears() {
+      await connectToDatabase();
+      const rows = await NewsModel.aggregate<{ _id: number }>([
+        { $group: { _id: { $year: "$createdAt" } } },
+        { $sort: { _id: -1 } },
+      ]);
+      return rows.map((row) => row._id);
+    },
     async getById(id) {
       if (!isValidObjectId(id)) return null;
       await connectToDatabase();

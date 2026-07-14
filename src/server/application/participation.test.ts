@@ -27,6 +27,7 @@ function makeRepo(request: ParticipationStatus): {
   const setRequest = vi.fn(async () => true);
   const repo: PerformerRepository = {
     list: vi.fn(),
+    search: vi.fn(),
     getById: vi.fn(),
     listForAdmin: vi.fn(),
     create: vi.fn(),

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { container } from "@/server/container";
-import { listNews } from "@/server/application/news";
+import { listCurrentYearNews } from "@/server/application/news";
 import { PageHeader } from "@/components/site/page-header";
 import { NewsCard } from "@/components/site/news-card";
 
@@ -13,15 +14,26 @@ export const metadata: Metadata = {
 };
 
 export default async function NewsListPage() {
-  const result = await listNews(container.newsRepository);
+  const result = await listCurrentYearNews(
+    container.newsRepository,
+    container.eventRepository,
+  );
   const news = result.ok ? result.value : null;
 
   return (
     <>
-      <PageHeader
-        title="Aktuality"
-        description="Novinky a informace z akce Živé Teplice."
-      />
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader
+          title="Aktuality"
+          description="Novinky a informace z aktuálního ročníku Živé Teplice."
+        />
+        <Link
+          href="/aktuality/archiv"
+          className="text-primary shrink-0 text-sm hover:underline"
+        >
+          Archiv aktualit
+        </Link>
+      </div>
       {news === null ? (
         <p className="text-muted-foreground">
           Aktuality se momentálně nepodařilo načíst. Zkuste to prosím později.
@@ -31,11 +43,14 @@ export default async function NewsListPage() {
           Zatím zde nejsou žádné aktuality.
         </p>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {news.map((item) => (
-            <NewsCard key={item.id} news={item} />
-          ))}
-        </div>
+        <>
+          <h2 className="sr-only">Seznam aktualit</h2>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {news.map((item) => (
+              <NewsCard key={item.id} news={item} />
+            ))}
+          </div>
+        </>
       )}
     </>
   );
