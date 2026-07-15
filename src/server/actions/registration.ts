@@ -11,6 +11,8 @@ import {
 import { hashPassword } from "@/server/infrastructure/auth/password";
 import type { DomainError, FieldErrors } from "@/server/domain/result";
 import { isValidUploadedImage } from "@/server/actions/image-ref";
+import { checkRateLimit } from "@/server/application/rate-limit";
+import { getClientIp } from "@/server/infrastructure/rate-limit/client-ip";
 
 export type RegisterActionResult =
   | { ok: true; redirectTo: string }
@@ -31,6 +33,11 @@ const INVALID_IMAGE: RegisterActionResult = {
   ok: false,
   error: "Neplatný obrázek.",
   fieldErrors: { image: ["Nahrajte prosím platný obrázek (PNG nebo JPG)."] },
+};
+
+const TOO_MANY_ATTEMPTS: RegisterActionResult = {
+  ok: false,
+  error: "Příliš mnoho pokusů o registraci. Zkuste to prosím za chvíli znovu.",
 };
 
 function deps(): RegistrationDeps {
@@ -57,6 +64,12 @@ export async function registerUserAction(
   const password = String(input?.password ?? "");
   const imageUrl = String(input?.imageUrl ?? "");
   const imageKey = String(input?.imageKey ?? "");
+
+  const { allowed } = await checkRateLimit(container.registerRateLimiter, {
+    ip: await getClientIp(),
+    identifier: email,
+  });
+  if (!allowed) return TOO_MANY_ATTEMPTS;
 
   if (!isValidUploadedImage(imageUrl, imageKey, "performer")) {
     return INVALID_IMAGE;

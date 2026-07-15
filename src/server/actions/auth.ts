@@ -2,10 +2,15 @@
 
 import { AuthError } from "next-auth";
 import { auth, signIn, signOut } from "@/auth";
+import { container } from "@/server/container";
+import { checkRateLimit } from "@/server/application/rate-limit";
+import { getClientIp } from "@/server/infrastructure/rate-limit/client-ip";
 
 // Generic message for every failure mode — no unknown-email vs wrong-password
 // distinction (docs/plans/phase-2-auth.md §6).
 const INVALID_CREDENTIALS = "Neplatný e-mail nebo heslo.";
+const TOO_MANY_ATTEMPTS =
+  "Příliš mnoho pokusů o přihlášení. Zkuste to prosím za chvíli znovu.";
 
 export type LoginResult =
   { ok: true; redirectTo: string } | { ok: false; error: string };
@@ -25,10 +30,17 @@ export async function login(formData: FormData): Promise<LoginResult> {
   const email = formData.get("email");
   const password = formData.get("password");
   const callbackUrl = safeCallbackUrl(formData.get("callbackUrl"));
+  const normalizedEmail = typeof email === "string" ? email : "";
+
+  const { allowed } = await checkRateLimit(container.loginRateLimiter, {
+    ip: await getClientIp(),
+    identifier: normalizedEmail,
+  });
+  if (!allowed) return { ok: false, error: TOO_MANY_ATTEMPTS };
 
   try {
     await signIn("credentials", {
-      email: typeof email === "string" ? email : "",
+      email: normalizedEmail,
       password: typeof password === "string" ? password : "",
       redirect: false,
     });

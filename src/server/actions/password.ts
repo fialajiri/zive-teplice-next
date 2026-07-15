@@ -14,9 +14,17 @@ import {
   generateResetToken,
 } from "@/server/infrastructure/auth/password";
 import type { DomainError, FieldErrors } from "@/server/domain/result";
+import { checkRateLimit } from "@/server/application/rate-limit";
+import { getClientIp } from "@/server/infrastructure/rate-limit/client-ip";
 
 export type PasswordActionResult =
   { ok: true } | { ok: false; error: string; fieldErrors?: FieldErrors };
+
+const TOO_MANY_ATTEMPTS: PasswordActionResult = {
+  ok: false,
+  error:
+    "Příliš mnoho žádostí o obnovu hesla. Zkuste to prosím za chvíli znovu.",
+};
 
 // Build the reset link against THIS app's origin (env), never a hard-coded host.
 function buildResetUrl(token: string): string {
@@ -49,10 +57,15 @@ function mapError(error: DomainError): PasswordActionResult {
 export async function requestPasswordResetAction(
   email: string,
 ): Promise<PasswordActionResult> {
-  const result = await requestPasswordReset(
-    passwordDeps(),
-    String(email ?? ""),
-  );
+  const normalizedEmail = String(email ?? "");
+
+  const { allowed } = await checkRateLimit(container.passwordResetRateLimiter, {
+    ip: await getClientIp(),
+    identifier: normalizedEmail,
+  });
+  if (!allowed) return TOO_MANY_ATTEMPTS;
+
+  const result = await requestPasswordReset(passwordDeps(), normalizedEmail);
   if (!result.ok) return mapError(result.error);
   return { ok: true };
 }
