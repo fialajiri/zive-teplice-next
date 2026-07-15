@@ -11,6 +11,15 @@ const CLOUDFRONT_HOST = "d374dusjcsfayx.cloudfront.net";
 // test-only hostname is hardcoded here.
 const uploadHost = process.env.S3_PUBLIC_HOST?.trim();
 
+// The browser PUTs the file straight to S3 using a presigned URL (see
+// src/server/infrastructure/storage/s3.ts) — the AWS SDK signs that against the
+// bucket's raw virtual-hosted-style endpoint, which is NOT necessarily uploadHost
+// (that may point at a CDN instead). Needed for connect-src, independent of img-src.
+const region = process.env.AWS_REGION?.trim();
+const bucket = process.env.AWS_BUCKET_NAME?.trim();
+const s3UploadEndpointHost =
+  region && bucket ? `${bucket}.s3.${region}.amazonaws.com` : null;
+
 const imageHosts = [
   S3_HOST,
   CLOUDFRONT_HOST,
@@ -27,6 +36,9 @@ const imageHosts = [
 // Report-Only in dev: Turbopack's HMR runtime relies on `eval`, which a
 // strict script-src would otherwise break.
 const imageOrigins = imageHosts.map((hostname) => `https://${hostname}`);
+const uploadOrigin = s3UploadEndpointHost
+  ? `https://${s3UploadEndpointHost}`
+  : null;
 const isProduction = process.env.NODE_ENV === "production";
 const cspHeaderKey = isProduction
   ? "Content-Security-Policy"
@@ -34,11 +46,15 @@ const cspHeaderKey = isProduction
 
 const cspDirectives = [
   `default-src 'self'`,
-  `img-src 'self' data: ${imageOrigins.join(" ")}`,
+  // blob: is required for client-side crop previews of a locally-selected file
+  // (createObjectURL), before it's ever uploaded.
+  `img-src 'self' data: blob: ${imageOrigins.join(" ")}`,
   `script-src 'self' 'unsafe-inline'`,
   `style-src 'self' 'unsafe-inline'`,
   `font-src 'self' data:`,
-  `connect-src 'self'`,
+  // Browser PUTs uploads directly to S3 via a presigned URL (bypasses Vercel's
+  // body-size limit) — that request needs the S3 host allow-listed here too.
+  `connect-src 'self' ${uploadOrigin ?? ""}`.trim(),
   `frame-ancestors 'none'`,
   `base-uri 'self'`,
   `form-action 'self'`,
