@@ -17,8 +17,10 @@ import {
 // Presigned PUTs are short-lived: the browser uploads immediately after asking.
 const PRESIGN_TTL_SECONDS = 60;
 
+// Trimmed defensively: a stray trailing newline/space from pasting a credential
+// into a hosting dashboard silently corrupts every AWS request signature.
 function requireEnv(name: string): string {
-  const value = process.env[name];
+  const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required env var: ${name}`);
   return value;
 }
