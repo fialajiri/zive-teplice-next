@@ -13,7 +13,7 @@ export function NewsCard({ news }: { news: NewsDto }) {
               src={news.image.imageUrl}
               alt=""
               fill
-              sizes="(min-width: 768px) 33vw, 100vw"
+              sizes="(min-width: 1024px) 309px, (min-width: 640px) calc(50vw - 36px), calc(100vw - 48px)"
               className="object-cover transition-transform duration-300 group-hover:scale-105"
             />
           </div>
