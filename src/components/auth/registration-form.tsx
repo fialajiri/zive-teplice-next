@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import {
   registerUserAction,
   type RegisterActionResult,
@@ -10,7 +11,7 @@ import {
   ImageUpload,
   type UploadedImage,
 } from "@/components/admin/image-upload";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 const inputClass =
   "border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 w-full rounded-lg border px-3 text-sm outline-none focus-visible:ring-3";
@@ -169,9 +170,17 @@ export function RegistrationForm() {
         ) : null}
       </div>
 
-      <Button type="submit" size="lg" disabled={pending} className="mt-1">
-        {pending ? "Registruji…" : "Zaregistrovat se"}
-      </Button>
+      <div className="mt-1 flex items-center gap-3">
+        <Button type="submit" size="lg" disabled={pending}>
+          {pending ? "Registruji…" : "Zaregistrovat se"}
+        </Button>
+        <Link
+          href="/"
+          className={buttonVariants({ variant: "ghost", size: "lg" })}
+        >
+          Zrušit
+        </Link>
+      </div>
     </form>
   );
 }
