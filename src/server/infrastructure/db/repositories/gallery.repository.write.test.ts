@@ -75,6 +75,55 @@ describe("gallery repository (write, integration)", () => {
     expect(after?.images[0].imageKey).toBe("gallery/b.jpg");
   });
 
+  it("update renames the gallery", async () => {
+    const id = await repo.create({
+      name: "Starý název",
+      featuredImage: {
+        imageUrl: "https://cdn/gallery/f.jpg",
+        imageKey: "gallery/f.jpg",
+      },
+    });
+    const after = await repo.update(id, { name: "Nový název" });
+    expect(after?.name).toBe("Nový název");
+    expect((await repo.getById(id))?.name).toBe("Nový název");
+  });
+
+  it("update returns null for an unknown id", async () => {
+    expect(
+      await repo.update(new mongoose.Types.ObjectId().toString(), {
+        name: "X",
+      }),
+    ).toBeNull();
+  });
+
+  it("listPage paginates newest-first and reports the true total", async () => {
+    for (const name of ["Alfa", "Beta", "Gama"]) {
+      await repo.create({
+        name,
+        featuredImage: {
+          imageUrl: "https://cdn/gallery/f.jpg",
+          imageKey: "gallery/f.jpg",
+        },
+      });
+    }
+    const all = await repo.list();
+    const totalBefore = all.length;
+
+    const first = await repo.listPage({ page: 1, pageSize: 2 });
+    expect(first.total).toBe(totalBefore);
+    expect(first.items).toHaveLength(2);
+
+    const rest = await repo.listPage({
+      page: 2,
+      pageSize: 2,
+    });
+    expect(rest.total).toBe(totalBefore);
+    expect(rest.items.length).toBe(Math.min(2, Math.max(0, totalBefore - 2)));
+    // No overlap between the two pages.
+    const firstIds = first.items.map((g) => g.id);
+    expect(rest.items.every((g) => !firstIds.includes(g.id))).toBe(true);
+  });
+
   it("delete removes the document and returns it with its keys", async () => {
     const id = await repo.create({
       name: "Smazat",

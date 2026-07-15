@@ -7,6 +7,7 @@ import type {
   UpdateEventInput,
 } from "@/server/domain/event";
 import type { StoragePort } from "@/server/domain/storage";
+import { ADMIN_PAGE_SIZE, clampPage } from "@/server/domain/pagination";
 import {
   err,
   notFound,
@@ -22,6 +23,28 @@ export async function listEvents(
 ): Promise<Result<EventDto[]>> {
   try {
     return ok(await repo.list());
+  } catch {
+    return err(unexpected("Nepodařilo se načíst ročníky."));
+  }
+}
+
+export type EventPage = {
+  items: EventDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+// Admin listing, paginated (year desc — same sort as list()).
+export async function listEventsPage(
+  repo: EventRepository,
+  params: { page?: number },
+): Promise<Result<EventPage>> {
+  const page = clampPage(params.page);
+  const pageSize = ADMIN_PAGE_SIZE;
+  try {
+    const { items, total } = await repo.listPage({ page, pageSize });
+    return ok({ items, total, page, pageSize });
   } catch {
     return err(unexpected("Nepodařilo se načíst ročníky."));
   }

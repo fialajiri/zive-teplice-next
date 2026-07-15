@@ -1,4 +1,5 @@
 import type { UncroppedImageDto } from "./news";
+import type { Page, PageParams } from "./pagination";
 
 export type ProgramDto = {
   id: string;
@@ -36,6 +37,8 @@ export type ProgramInput = {
 
 export type EventRepository = {
   list(): Promise<EventDto[]>;
+  /** Admin listing, paginated — same sort as list() (year desc), program omitted. */
+  listPage(params: PageParams): Promise<Page<EventDto>>;
   getCurrent(): Promise<EventDto | null>;
   getById(id: string): Promise<EventDto | null>;
   /**

@@ -50,11 +50,14 @@ function mapError(error: DomainError): PerformerActionResult {
   return { ok: false, error: error.message };
 }
 
-// One performer mutated → their public profile + the list + their account area.
+// One performer mutated → their public profile + the list + their account area
+// + the admin list (force-dynamic, so this isn't strictly required, but keeps
+// behavior correct if that ever changes).
 function revalidatePerformer(id: string): void {
   revalidatePath("/ucinkujici");
   revalidatePath(`/ucinkujici/${id}`);
   revalidatePath("/ucet");
+  revalidatePath("/admin/ucinkujici");
 }
 
 export async function updatePerformerAction(

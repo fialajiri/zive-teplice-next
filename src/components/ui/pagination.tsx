@@ -55,9 +55,12 @@ function PaginationLink({
       className={cn(className)}
       nativeButton={false}
       render={
+        // No data-slot here: it would collide with Button's own
+        // data-slot="button" on the merged <a>, and Base UI's render-prop
+        // merge resolves that collision inconsistently between SSR and
+        // client hydration (React hydration mismatch).
         <a
           aria-current={isActive ? "page" : undefined}
-          data-slot="pagination-link"
           data-active={isActive}
           {...props}
         />

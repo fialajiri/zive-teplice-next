@@ -1,5 +1,6 @@
 import type { PerformerSearchPage } from "@/server/application/performers";
 import { PerformerCard } from "@/components/site/performer-card";
+import { pageHref as buildPageHref, pageWindow } from "@/lib/pagination";
 import {
   Pagination,
   PaginationContent,
@@ -11,26 +12,7 @@ import {
 } from "@/components/ui/pagination";
 
 function pageHref(basePath: string, query: string, page: number): string {
-  const params = new URLSearchParams();
-  if (query) params.set("q", query);
-  if (page > 1) params.set("page", String(page));
-  const qs = params.toString();
-  return qs ? `${basePath}?${qs}` : basePath;
-}
-
-// Window of page numbers around `current`, with "…" gaps — 1 … c-1 c c+1 … last.
-function pageWindow(current: number, total: number): (number | "ellipsis")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages = new Set([1, total, current - 1, current, current + 1]);
-  const sorted = [...pages]
-    .filter((p) => p >= 1 && p <= total)
-    .sort((a, b) => a - b);
-  const result: (number | "ellipsis")[] = [];
-  sorted.forEach((page, index) => {
-    if (index > 0 && page - sorted[index - 1]! > 1) result.push("ellipsis");
-    result.push(page);
-  });
-  return result;
+  return buildPageHref(basePath, { q: query }, page);
 }
 
 export function PerformerResults({

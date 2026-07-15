@@ -101,3 +101,22 @@ describe("event repository createCurrent (transaction, integration)", () => {
     expect(users[0].request).toBe("pending");
   });
 });
+
+describe("event repository listPage (integration)", () => {
+  it("paginates year-desc and reports the true total", async () => {
+    await EventModel.deleteMany({});
+    await EventModel.create([
+      { title: "2024", year: 2024, current: false },
+      { title: "2025", year: 2025, current: false },
+      { title: "2026", year: 2026, current: true },
+    ]);
+
+    const first = await repo.listPage({ page: 1, pageSize: 2 });
+    expect(first.total).toBe(3);
+    expect(first.items.map((e) => e.year)).toEqual([2026, 2025]);
+
+    const second = await repo.listPage({ page: 2, pageSize: 2 });
+    expect(second.total).toBe(3);
+    expect(second.items.map((e) => e.year)).toEqual([2024]);
+  });
+});

@@ -23,6 +23,7 @@ const event: EventDto = {
 function repoWith(overrides: Partial<EventRepository>): EventRepository {
   return {
     list: async () => [],
+    listPage: async () => ({ items: [], total: 0 }),
     getCurrent: async () => null,
     getById: async () => null,
     createCurrent: async () => "new-id",

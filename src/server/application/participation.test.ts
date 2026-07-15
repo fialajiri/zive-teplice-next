@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { requestParticipation, decideParticipation } from "./participation";
+import {
+  requestParticipation,
+  decideParticipation,
+  searchPerformersForAdmin,
+} from "./participation";
 import type {
   ParticipationStatus,
   PerformerAccountDto,
@@ -29,7 +33,7 @@ function makeRepo(request: ParticipationStatus): {
     list: vi.fn(),
     search: vi.fn(),
     getById: vi.fn(),
-    listForAdmin: vi.fn(),
+    searchForAdmin: vi.fn(),
     create: vi.fn(),
     findByEmail: vi.fn(),
     existsByUsername: vi.fn(),
@@ -120,5 +124,62 @@ describe("decideParticipation", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.kind).toBe("not_found");
     expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe("searchPerformersForAdmin", () => {
+  it("clamps an invalid page to 1 and trims the query", async () => {
+    const { repo } = makeRepo("pending");
+    const searchForAdmin = vi.fn(async () => ({
+      items: [accountWith("pending")],
+      total: 1,
+    }));
+    repo.searchForAdmin = searchForAdmin;
+
+    const result = await searchPerformersForAdmin(repo, {
+      query: "  jana  ",
+      page: -5,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        items: [accountWith("pending")],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      },
+    });
+    expect(searchForAdmin).toHaveBeenCalledWith({
+      query: "jana",
+      page: 1,
+      pageSize: 20,
+    });
+  });
+
+  it("passes an undefined query when the input is blank", async () => {
+    const { repo } = makeRepo("pending");
+    const searchForAdmin = vi.fn(async () => ({ items: [], total: 0 }));
+    repo.searchForAdmin = searchForAdmin;
+
+    await searchPerformersForAdmin(repo, { query: "   " });
+
+    expect(searchForAdmin).toHaveBeenCalledWith({
+      query: undefined,
+      page: 1,
+      pageSize: 20,
+    });
+  });
+
+  it("returns unexpected on a repository failure", async () => {
+    const { repo } = makeRepo("pending");
+    repo.searchForAdmin = vi.fn(async () => {
+      throw new Error("db down");
+    });
+
+    const result = await searchPerformersForAdmin(repo, {});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe("unexpected");
   });
 });

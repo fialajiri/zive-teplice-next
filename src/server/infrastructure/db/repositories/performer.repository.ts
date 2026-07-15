@@ -5,11 +5,13 @@ import { UserModel, type UserDocument } from "../models/user.model";
 import type {
   ParticipationStatus,
   PerformerAccountDto,
+  PerformerAdminSearchParams,
   PerformerDto,
   PerformerRepository,
   PerformerSearchParams,
   PerformerSearchResult,
 } from "@/server/domain/performer";
+import type { Page } from "@/server/domain/pagination";
 import { toImageDto } from "./mappers";
 
 // Base Latin letter -> the Czech-alphabet diacritic variants a search should
@@ -129,12 +131,32 @@ export function createPerformerRepository(): PerformerRepository {
       }).lean<UserDocument | null>();
       return doc ? toPerformerDto(doc) : null;
     },
-    async listForAdmin() {
+    async searchForAdmin({
+      query,
+      page,
+      pageSize,
+    }: PerformerAdminSearchParams): Promise<Page<PerformerAccountDto>> {
       await connectToDatabase();
-      const docs = await UserModel.find({ role: "user" })
-        .sort({ username: 1 })
-        .lean<UserDocument[]>();
-      return docs.map(toPerformerAccountDto);
+      const filter: Record<string, unknown> = { role: "user" };
+      const trimmed = query?.trim();
+      if (trimmed) {
+        const pattern = diacriticInsensitivePattern(trimmed);
+        filter.$or = [
+          { username: { $regex: pattern, $options: "i" } },
+          { email: { $regex: pattern, $options: "i" } },
+        ];
+      }
+      const [docs, total] = await Promise.all([
+        // `_id` is a tiebreaker: username alone isn't guaranteed unique enough
+        // to keep .skip/.limit deterministic.
+        UserModel.find(filter)
+          .sort({ username: 1, _id: 1 })
+          .skip((page - 1) * pageSize)
+          .limit(pageSize)
+          .lean<UserDocument[]>(),
+        UserModel.countDocuments(filter),
+      ]);
+      return { items: docs.map(toPerformerAccountDto), total };
     },
     async create(input) {
       await connectToDatabase();

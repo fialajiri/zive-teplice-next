@@ -1,4 +1,5 @@
 import type { ImageDto } from "./news";
+import type { Page } from "./pagination";
 
 // Public-facing performer (legacy user with role "user"). Deliberately excludes
 // email/phone/auth fields — public pages only need the profile. Contact/admin data
@@ -66,13 +67,23 @@ export type PerformerSearchResult = {
   total: number;
 };
 
+// Admin search matches BOTH username and email (unlike the public search, which is
+// deliberately username-only) and returns the account-level DTO.
+export type PerformerAdminSearchParams = {
+  query?: string;
+  page: number;
+  pageSize: number;
+};
+
 export type PerformerRepository = {
   list(): Promise<PerformerDto[]>;
   /** Paginated, username-only search — the public /ucinkujici query shape. */
   search(params: PerformerSearchParams): Promise<PerformerSearchResult>;
   getById(id: string): Promise<PerformerDto | null>;
-  /** Admin view of all performers — includes email/phone/request. */
-  listForAdmin(): Promise<PerformerAccountDto[]>;
+  /** Admin search — paginated, username OR email, account-level fields. */
+  searchForAdmin(
+    params: PerformerAdminSearchParams,
+  ): Promise<Page<PerformerAccountDto>>;
   // ── Write path ──────────────────────────────────────────────────────────────
   /** Persist a new performer (`role:"user"`, `request:"notsend"`); returns its id. */
   create(input: CreatePerformerInput): Promise<string>;

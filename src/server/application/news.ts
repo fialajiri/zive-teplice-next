@@ -9,6 +9,7 @@ import type {
 } from "@/server/domain/news";
 import type { StoragePort } from "@/server/domain/storage";
 import { yearDateRange } from "@/lib/dates";
+import { ADMIN_PAGE_SIZE, clampPage } from "@/server/domain/pagination";
 import {
   err,
   notFound,
@@ -24,6 +25,28 @@ export async function listNews(
 ): Promise<Result<NewsDto[]>> {
   try {
     return ok(await repo.list());
+  } catch {
+    return err(unexpected("Nepodařilo se načíst aktuality."));
+  }
+}
+
+export type NewsPage = {
+  items: NewsDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+// Admin listing, paginated (createdAt desc — same sort as list()).
+export async function listNewsPage(
+  repo: NewsRepository,
+  params: { page?: number },
+): Promise<Result<NewsPage>> {
+  const page = clampPage(params.page);
+  const pageSize = ADMIN_PAGE_SIZE;
+  try {
+    const { items, total } = await repo.listPage({ page, pageSize });
+    return ok({ items, total, page, pageSize });
   } catch {
     return err(unexpected("Nepodařilo se načíst aktuality."));
   }

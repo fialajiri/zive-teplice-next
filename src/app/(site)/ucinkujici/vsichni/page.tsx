@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { container } from "@/server/container";
 import { searchPerformers } from "@/server/application/performers";
+import { firstParam } from "@/lib/pagination";
 import { PageHeader } from "@/components/site/page-header";
 import { PerformerSearchForm } from "@/components/site/performer-search-form";
 import { PerformerResults } from "@/components/site/performer-results";
@@ -17,10 +18,6 @@ export const metadata: Metadata = {
 const BASE_PATH = "/ucinkujici/vsichni";
 
 type SearchParams = { q?: string | string[]; page?: string | string[] };
-
-function firstParam(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
 
 export default async function AllPerformersPage({
   searchParams,

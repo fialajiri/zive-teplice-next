@@ -26,6 +26,20 @@ export function createNewsRepository(): NewsRepository {
         .lean<NewsDocument[]>();
       return docs.map(toNewsDto);
     },
+    async listPage({ page, pageSize }) {
+      await connectToDatabase();
+      const [docs, total] = await Promise.all([
+        // `_id` is a tiebreaker: createdAt alone isn't unique enough to keep
+        // .skip/.limit deterministic across two same-millisecond inserts.
+        NewsModel.find()
+          .sort({ createdAt: -1, _id: -1 })
+          .skip((page - 1) * pageSize)
+          .limit(pageSize)
+          .lean<NewsDocument[]>(),
+        NewsModel.countDocuments(),
+      ]);
+      return { items: docs.map(toNewsDto), total };
+    },
     async listByDateRange(start, end) {
       await connectToDatabase();
       const docs = await NewsModel.find({

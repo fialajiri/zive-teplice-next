@@ -28,6 +28,7 @@ const sample: NewsDto = {
 function repoWith(overrides: Partial<NewsRepository>): NewsRepository {
   return {
     list: async () => [],
+    listPage: async () => ({ items: [], total: 0 }),
     listByDateRange: async () => [],
     listDistinctYears: async () => [],
     getById: async () => null,
@@ -76,6 +77,7 @@ describe("getNews", () => {
 function eventRepoWith(overrides: Partial<EventRepository>): EventRepository {
   return {
     list: async () => [],
+    listPage: async () => ({ items: [], total: 0 }),
     getCurrent: async () => null,
     getById: async () => null,
     createCurrent: async () => "new-id",

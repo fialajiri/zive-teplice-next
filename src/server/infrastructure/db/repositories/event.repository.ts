@@ -51,6 +51,20 @@ export function createEventRepository(): EventRepository {
         .lean<EventDocument[]>();
       return docs.map((doc) => toEventDto(doc, null));
     },
+    async listPage({ page, pageSize }) {
+      await connectToDatabase();
+      const [docs, total] = await Promise.all([
+        // `_id` is a tiebreaker: year alone isn't unique enough (two events
+        // could theoretically share a year) to keep .skip/.limit deterministic.
+        EventModel.find()
+          .sort({ year: -1, _id: -1 })
+          .skip((page - 1) * pageSize)
+          .limit(pageSize)
+          .lean<EventDocument[]>(),
+        EventModel.countDocuments(),
+      ]);
+      return { items: docs.map((doc) => toEventDto(doc, null)), total };
+    },
     async getCurrent() {
       await connectToDatabase();
       const event = await EventModel.findOne({

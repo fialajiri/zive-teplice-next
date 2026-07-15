@@ -4,6 +4,7 @@ import type {
   PerformerRepository,
 } from "@/server/domain/performer";
 import type { Mailer } from "@/server/domain/mailer";
+import { ADMIN_PAGE_SIZE, clampPage } from "@/server/domain/pagination";
 import { participationDecisionEmail } from "@/server/infrastructure/email/templates";
 import {
   err,
@@ -44,11 +45,28 @@ export async function requestParticipation(
 
 // ── Admin side ───────────────────────────────────────────────────────────────
 
-export async function listPerformersForAdmin(
+export type PerformerAdminPage = {
+  items: PerformerAccountDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+// Admin search — username OR email, paginated. Sorted by username (repo-level).
+export async function searchPerformersForAdmin(
   repo: PerformerRepository,
-): Promise<Result<PerformerAccountDto[]>> {
+  params: { query?: string; page?: number },
+): Promise<Result<PerformerAdminPage>> {
+  const page = clampPage(params.page);
+  const pageSize = ADMIN_PAGE_SIZE;
+  const query = params.query?.trim() || undefined;
   try {
-    return ok(await repo.listForAdmin());
+    const { items, total } = await repo.searchForAdmin({
+      query,
+      page,
+      pageSize,
+    });
+    return ok({ items, total, page, pageSize });
   } catch {
     return err(unexpected("Nepodařilo se načíst účinkující."));
   }

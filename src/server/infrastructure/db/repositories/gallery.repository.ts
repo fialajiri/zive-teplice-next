@@ -31,6 +31,20 @@ export function createGalleryRepository(): GalleryRepository {
         .lean<GalleryDocument[]>();
       return docs.map(toGalleryDto);
     },
+    async listPage({ page, pageSize }) {
+      await connectToDatabase();
+      const [docs, total] = await Promise.all([
+        // `_id` is a tiebreaker: createdAt alone isn't unique enough to keep
+        // .skip/.limit deterministic across two same-millisecond inserts.
+        GalleryModel.find()
+          .sort({ createdAt: -1, _id: -1 })
+          .skip((page - 1) * pageSize)
+          .limit(pageSize)
+          .lean<GalleryDocument[]>(),
+        GalleryModel.countDocuments(),
+      ]);
+      return { items: docs.map(toGalleryDto), total };
+    },
     async getById(id) {
       if (!isValidObjectId(id)) return null;
       await connectToDatabase();
@@ -46,6 +60,16 @@ export function createGalleryRepository(): GalleryRepository {
         featuredImage: input.featuredImage,
       });
       return doc._id.toString();
+    },
+    async update(id, input) {
+      if (!isValidObjectId(id)) return null;
+      await connectToDatabase();
+      const doc = await GalleryModel.findByIdAndUpdate(
+        id,
+        { $set: { name: input.name } },
+        { returnDocument: "after" },
+      ).lean<GalleryDocument | null>();
+      return doc ? toGalleryDto(doc) : null;
     },
     async appendImages(id, images) {
       if (!isValidObjectId(id)) return null;

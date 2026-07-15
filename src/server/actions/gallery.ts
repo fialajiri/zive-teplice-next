@@ -6,6 +6,7 @@ import { requireAdmin } from "@/server/actions/guards";
 import { isValidUploadedImage } from "@/server/actions/image-ref";
 import {
   createGallery,
+  renameGallery,
   appendGalleryImages,
   removeGalleryImage,
   deleteGallery,
@@ -76,6 +77,23 @@ export async function createGalleryAction(
 
   revalidatePath("/galerie");
   return { ok: true, id: result.value.id };
+}
+
+export async function renameGalleryAction(
+  id: string,
+  name: string,
+): Promise<GalleryActionResult> {
+  const admin = await requireAdmin();
+  if (!admin.ok) return FORBIDDEN;
+  if (typeof id !== "string" || id.length === 0) {
+    return { ok: false, error: "Neplatný požadavek." };
+  }
+
+  const result = await renameGallery(writeDeps(), id, String(name ?? ""));
+  if (!result.ok) return mapError(result.error);
+
+  revalidateGallery(id);
+  return { ok: true, id };
 }
 
 export async function appendGalleryImagesAction(

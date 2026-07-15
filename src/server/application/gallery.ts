@@ -6,6 +6,7 @@ import type {
   GalleryRepository,
 } from "@/server/domain/gallery";
 import type { StoragePort } from "@/server/domain/storage";
+import { ADMIN_PAGE_SIZE, clampPage } from "@/server/domain/pagination";
 import {
   err,
   notFound,
@@ -21,6 +22,28 @@ export async function listGalleries(
 ): Promise<Result<GalleryDto[]>> {
   try {
     return ok(await repo.list());
+  } catch {
+    return err(unexpected("Nepodařilo se načíst galerie."));
+  }
+}
+
+export type GalleryPage = {
+  items: GalleryDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+// Admin listing, paginated (createdAt desc — same sort as list()).
+export async function listGalleriesPage(
+  repo: GalleryRepository,
+  params: { page?: number },
+): Promise<Result<GalleryPage>> {
+  const page = clampPage(params.page);
+  const pageSize = ADMIN_PAGE_SIZE;
+  try {
+    const { items, total } = await repo.listPage({ page, pageSize });
+    return ok({ items, total, page, pageSize });
   } catch {
     return err(unexpected("Nepodařilo se načíst galerie."));
   }
@@ -92,6 +115,26 @@ export async function createGallery(
     return ok({ id });
   } catch {
     return err(unexpected("Galerii se nepodařilo vytvořit."));
+  }
+}
+
+const renameGallerySchema = z.object({ name: nameSchema });
+
+export async function renameGallery(
+  deps: GalleryWriteDeps,
+  id: string,
+  name: string,
+): Promise<Result<{ id: string }>> {
+  const parsed = renameGallerySchema.safeParse({ name });
+  if (!parsed.success) {
+    return err(validation(INVALID_INPUT, toFieldErrors(parsed.error)));
+  }
+  try {
+    const updated = await deps.gallery.update(id, parsed.data);
+    if (!updated) return err(notFound("Galerie nebyla nalezena."));
+    return ok({ id });
+  } catch {
+    return err(unexpected("Galerii se nepodařilo přejmenovat."));
   }
 }
 

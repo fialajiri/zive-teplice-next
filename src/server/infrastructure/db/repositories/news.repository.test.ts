@@ -66,6 +66,24 @@ describe("news repository (integration)", () => {
       await repo.getById(new mongoose.Types.ObjectId().toString()),
     ).toBeNull();
   });
+
+  it("listPage paginates newest-first and reports the true total", async () => {
+    const first = await repo.listPage({ page: 1, pageSize: 1 });
+    expect(first.total).toBe(2);
+    expect(first.items).toHaveLength(1);
+    expect(first.items[0].title).toBe("Novější");
+
+    const second = await repo.listPage({ page: 2, pageSize: 1 });
+    expect(second.total).toBe(2);
+    expect(second.items).toHaveLength(1);
+    expect(second.items[0].title).toBe("Starší");
+  });
+
+  it("listPage returns an empty page past the end", async () => {
+    const page = await repo.listPage({ page: 5, pageSize: 1 });
+    expect(page.total).toBe(2);
+    expect(page.items).toEqual([]);
+  });
 });
 
 describe("news repository — by year (integration)", () => {

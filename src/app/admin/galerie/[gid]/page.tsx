@@ -5,6 +5,7 @@ import { container } from "@/server/container";
 import { getGallery } from "@/server/application/gallery";
 import { GalleryManager } from "@/components/admin/gallery-manager";
 import { DeleteGalleryButton } from "@/components/admin/delete-gallery-button";
+import { RenameGalleryForm } from "@/components/admin/rename-gallery-form";
 
 export const metadata: Metadata = {
   title: "Správa galerie — administrace",
@@ -31,9 +32,10 @@ export default async function ManageGalleryPage({
           ← Zpět na galerie
         </Link>
         <div className="mt-2 flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {gallery.name ?? "Bez názvu"}
-          </h1>
+          <RenameGalleryForm
+            id={gallery.id}
+            name={gallery.name ?? "Bez názvu"}
+          />
           <DeleteGalleryButton
             id={gallery.id}
             name={gallery.name ?? "Bez názvu"}

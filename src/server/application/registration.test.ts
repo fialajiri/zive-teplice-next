@@ -32,7 +32,7 @@ function makeDeps(overrides?: {
     list: vi.fn(),
     search: vi.fn(),
     getById: vi.fn(),
-    listForAdmin: vi.fn(),
+    searchForAdmin: vi.fn(),
     create,
     findByEmail: overrides?.findByEmail ?? vi.fn(async () => null),
     existsByUsername: overrides?.existsByUsername ?? vi.fn(async () => false),

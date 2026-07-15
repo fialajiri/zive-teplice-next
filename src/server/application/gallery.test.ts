@@ -3,6 +3,7 @@ import {
   listGalleries,
   getGallery,
   createGallery,
+  renameGallery,
   appendGalleryImages,
   removeGalleryImage,
   deleteGallery,
@@ -26,8 +27,10 @@ const sample: GalleryDto = {
 function repoWith(overrides: Partial<GalleryRepository>): GalleryRepository {
   return {
     list: async () => [],
+    listPage: async () => ({ items: [], total: 0 }),
     getById: async () => null,
     create: async () => "new-id",
+    update: async () => null,
     appendImages: async () => null,
     removeImage: async () => null,
     delete: async () => null,
@@ -109,6 +112,35 @@ describe("createGallery", () => {
       featuredImage: validFeatured,
     });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("renameGallery", () => {
+  it("renames a valid gallery", async () => {
+    const result = await renameGallery(
+      depsWith({ update: async () => sample }),
+      "1",
+      "Nový název",
+    );
+    expect(result).toEqual({ ok: true, value: { id: "1" } });
+  });
+
+  it("rejects a too-short name (< 4)", async () => {
+    const result = await renameGallery(depsWith({}), "1", "Ab");
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.error.kind === "validation") {
+      expect(result.error.fieldErrors?.name).toBeDefined();
+    }
+  });
+
+  it("returns not_found when the gallery doesn't exist", async () => {
+    const result = await renameGallery(
+      depsWith({ update: async () => null }),
+      "missing",
+      "Nový název",
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe("not_found");
   });
 });
 

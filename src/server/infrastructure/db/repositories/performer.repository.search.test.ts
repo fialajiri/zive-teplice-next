@@ -111,3 +111,64 @@ describe("performer repository search (integration)", () => {
     expect(new Set(allUsernames).size).toBe(3);
   });
 });
+
+describe("performer repository searchForAdmin (integration)", () => {
+  it("matches username case- and diacritic-insensitively", async () => {
+    const { items, total } = await repo.searchForAdmin({
+      query: "boskova",
+      page: 1,
+      pageSize: 12,
+    });
+    expect(total).toBe(1);
+    expect(items[0]?.username).toBe("Alena Bošková");
+  });
+
+  it("also matches by email — unlike the public search", async () => {
+    const { items, total } = await repo.searchForAdmin({
+      query: "b@x.cz",
+      page: 1,
+      pageSize: 12,
+    });
+    expect(total).toBe(1);
+    expect(items[0]?.email).toBe("b@x.cz");
+  });
+
+  it("returns account-level fields (email, phone, request)", async () => {
+    const { items } = await repo.searchForAdmin({
+      query: "boskova",
+      page: 1,
+      pageSize: 12,
+    });
+    expect(items[0]).toMatchObject({
+      email: "a@x.cz",
+      phoneNumber: "777123456",
+      request: "approved",
+    });
+  });
+
+  it("never returns admin accounts", async () => {
+    const { items } = await repo.searchForAdmin({
+      query: "alena",
+      page: 1,
+      pageSize: 12,
+    });
+    expect(items.map((i) => i.username)).toEqual(["Alena Bošková"]);
+  });
+
+  it("with no query, returns every non-admin performer", async () => {
+    const { items, total } = await repo.searchForAdmin({
+      page: 1,
+      pageSize: 12,
+    });
+    expect(total).toBe(3);
+    expect(items).toHaveLength(3);
+  });
+
+  it("paginates with correct skip/limit and total count", async () => {
+    const pageOne = await repo.searchForAdmin({ page: 1, pageSize: 2 });
+    const pageTwo = await repo.searchForAdmin({ page: 2, pageSize: 2 });
+    expect(pageOne.total).toBe(3);
+    expect(pageOne.items).toHaveLength(2);
+    expect(pageTwo.items).toHaveLength(1);
+  });
+});

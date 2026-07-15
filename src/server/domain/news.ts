@@ -1,5 +1,7 @@
 // Serializable news DTO (id as string, dates as ISO strings) + repository port.
 
+import type { Page, PageParams } from "./pagination";
+
 export type ImageDto = { imageUrl: string; imageKey: string };
 
 // An image stored without a forced crop — the display side needs the real
@@ -39,6 +41,8 @@ export type UpdateNewsInput = {
 
 export type NewsRepository = {
   list(): Promise<NewsDto[]>;
+  /** Admin listing, paginated — same sort as list() (createdAt desc). */
+  listPage(params: PageParams): Promise<Page<NewsDto>>;
   /** createdAt within [start, end) — ISO bounds, start inclusive/end exclusive. */
   listByDateRange(start: string, end: string): Promise<NewsDto[]>;
   /** Distinct years with at least one item, most recent first. */
