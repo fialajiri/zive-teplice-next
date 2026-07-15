@@ -54,7 +54,9 @@ const cspDirectives = [
   `font-src 'self' data:`,
   // Browser PUTs uploads directly to S3 via a presigned URL (bypasses Vercel's
   // body-size limit) — that request needs the S3 host allow-listed here too.
-  `connect-src 'self' ${uploadOrigin ?? ""}`.trim(),
+  // blob: is required because the crop dialog fetch()es the locally-selected
+  // file's object URL to read its pixel data before cropping/uploading.
+  `connect-src 'self' blob: ${uploadOrigin ?? ""}`.trim(),
   `frame-ancestors 'none'`,
   `base-uri 'self'`,
   `form-action 'self'`,
