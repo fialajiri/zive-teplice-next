@@ -5,7 +5,8 @@
     "AllowedOrigins": [
       "http://localhost:3000",
       "https://zive-teplice.cz",
-      "https://www.zive-teplice.cz"
+      "https://www.zive-teplice.cz",
+      "https://zive-teplice-next.vercel.app"
     ],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3000
