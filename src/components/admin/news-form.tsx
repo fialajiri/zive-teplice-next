@@ -23,6 +23,7 @@ export type NewsFormInitial = {
   title: string;
   message: string;
   image: UploadedImage | null;
+  secondaryImage: UploadedImage | null;
 };
 
 type NewsFormProps =
@@ -42,6 +43,12 @@ export function NewsForm({ mode, newsId, initial }: NewsFormProps) {
   // image untouched sends no image fields, so the existing one is preserved and
   // never re-validated (legacy keys may predate the `news/` prefix rule).
   const [imageReplaced, setImageReplaced] = useState(false);
+  const [secondaryImage, setSecondaryImage] = useState<UploadedImage | null>(
+    initial?.secondaryImage ?? null,
+  );
+  // Same "only send what changed" rule as the primary image, but tri-state: not
+  // touched (omit), set/replaced (send it), or explicitly cleared (send removal).
+  const [secondaryImageTouched, setSecondaryImageTouched] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   function fieldError(name: string): string | undefined {
@@ -51,6 +58,11 @@ export function NewsForm({ mode, newsId, initial }: NewsFormProps) {
   function handleImageChange(next: UploadedImage | null) {
     setImage(next);
     setImageReplaced(true);
+  }
+
+  function handleSecondaryImageChange(next: UploadedImage | null) {
+    setSecondaryImage(next);
+    setSecondaryImageTouched(true);
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -74,12 +86,29 @@ export function NewsForm({ mode, newsId, initial }: NewsFormProps) {
               message,
               imageUrl: image?.imageUrl ?? "",
               imageKey: image?.imageKey ?? "",
+              secondaryImageUrl: secondaryImage?.imageUrl,
+              secondaryImageKey: secondaryImage?.imageKey,
+              secondaryImageWidth: secondaryImage?.width,
+              secondaryImageHeight: secondaryImage?.height,
             })
           : await updateNewsAction(newsId, {
               title,
               message,
               imageUrl: replacement?.imageUrl,
               imageKey: replacement?.imageKey,
+              secondaryImageUrl: secondaryImageTouched
+                ? (secondaryImage?.imageUrl ?? undefined)
+                : undefined,
+              secondaryImageKey: secondaryImageTouched
+                ? (secondaryImage?.imageKey ?? undefined)
+                : undefined,
+              secondaryImageWidth: secondaryImageTouched
+                ? secondaryImage?.width
+                : undefined,
+              secondaryImageHeight: secondaryImageTouched
+                ? secondaryImage?.height
+                : undefined,
+              removeSecondaryImage: secondaryImageTouched && !secondaryImage,
             });
 
       if (!result.ok) {
@@ -147,7 +176,7 @@ export function NewsForm({ mode, newsId, initial }: NewsFormProps) {
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="image" className="text-sm font-medium">
-          Obrázek
+          Obrázek (náhledový)
         </label>
         <ImageUpload
           id="image"
@@ -156,7 +185,7 @@ export function NewsForm({ mode, newsId, initial }: NewsFormProps) {
           onChange={handleImageChange}
           ariaInvalid={fieldError("image") ? true : undefined}
           ariaDescribedby={
-            fieldError("image") ? "image-field-error" : undefined
+            fieldError("image") ? "image-field-error" : "image-field-hint"
           }
         />
         {fieldError("image") ? (
@@ -167,7 +196,47 @@ export function NewsForm({ mode, newsId, initial }: NewsFormProps) {
           >
             {fieldError("image")}
           </p>
-        ) : null}
+        ) : (
+          <p id="image-field-hint" className="text-muted-foreground text-xs">
+            Ořízne se na poměr 16:9 a slouží jako náhled u výpisu aktualit i
+            nahoře na detailu.
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="secondary-image" className="text-sm font-medium">
+          Druhý obrázek — celý, bez oříznutí (nepovinný)
+        </label>
+        <ImageUpload
+          id="secondary-image"
+          aspectRatio="original"
+          value={secondaryImage}
+          onChange={handleSecondaryImageChange}
+          ariaInvalid={fieldError("secondaryImage") ? true : undefined}
+          ariaDescribedby={
+            fieldError("secondaryImage")
+              ? "secondary-image-field-error"
+              : "secondary-image-field-hint"
+          }
+        />
+        {fieldError("secondaryImage") ? (
+          <p
+            id="secondary-image-field-error"
+            role="alert"
+            className="text-destructive text-sm"
+          >
+            {fieldError("secondaryImage")}
+          </p>
+        ) : (
+          <p
+            id="secondary-image-field-hint"
+            className="text-muted-foreground text-xs"
+          >
+            Zobrazí se celý, bez oříznutí, pod textem na detailu aktuality —
+            vhodné pro plakát nebo mapu místa.
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-3">

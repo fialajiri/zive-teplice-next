@@ -68,12 +68,16 @@ export function EventProgramForm({
             message,
             imageUrl: replacement?.imageUrl,
             imageKey: replacement?.imageKey,
+            imageWidth: replacement?.width,
+            imageHeight: replacement?.height,
           })
         : await addProgramAction(eventId, {
             title,
             message,
             imageUrl: image?.imageUrl ?? "",
             imageKey: image?.imageKey ?? "",
+            imageWidth: image?.width,
+            imageHeight: image?.height,
           });
 
       if (!result.ok) {
@@ -151,7 +155,7 @@ export function EventProgramForm({
         <ImageUpload
           id="program-image"
           prefix="program"
-          aspectRatio={16 / 9}
+          aspectRatio="original"
           value={image}
           onChange={handleImageChange}
           ariaInvalid={fieldError("image") ? true : undefined}

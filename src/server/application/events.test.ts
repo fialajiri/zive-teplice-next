@@ -141,6 +141,8 @@ describe("deleteEvent", () => {
         image: {
           imageUrl: "https://cdn/program/x.jpg",
           imageKey: "program/x.jpg",
+          width: 1200,
+          height: 1600,
         },
       },
     };
@@ -172,7 +174,12 @@ describe("deleteEvent", () => {
 const validProgram = {
   title: "Program ročníku",
   message: "<p>Ahoj</p>",
-  image: { imageUrl: "https://cdn/program/a.jpg", imageKey: "program/a.jpg" },
+  image: {
+    imageUrl: "https://cdn/program/a.jpg",
+    imageKey: "program/a.jpg",
+    width: 1200,
+    height: 1600,
+  },
 };
 
 describe("addProgram", () => {
@@ -241,6 +248,8 @@ describe("updateProgram", () => {
         image: {
           imageUrl: "https://cdn/program/new.jpg",
           imageKey: "program/new.jpg",
+          width: 1200,
+          height: 1600,
         },
       },
     );

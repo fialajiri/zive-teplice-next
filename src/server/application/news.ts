@@ -111,6 +111,15 @@ const imageInputSchema = z.object({
   imageKey: z.string().trim().min(1),
 });
 
+// The optional second image is never cropped — width/height are required so the
+// detail page can size an exact-aspect-ratio container.
+const uncroppedImageInputSchema = z.object({
+  imageUrl: z.url(),
+  imageKey: z.string().trim().min(1),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+
 const titleSchema = z
   .string()
   .trim()
@@ -125,12 +134,14 @@ const createNewsSchema = z.object({
   title: titleSchema,
   message: messageSchema,
   image: imageInputSchema,
+  secondaryImage: uncroppedImageInputSchema.optional(),
 });
 
 const updateNewsSchema = z.object({
   title: titleSchema,
   message: messageSchema,
   image: imageInputSchema.optional(),
+  secondaryImage: uncroppedImageInputSchema.nullable().optional(),
 });
 
 function toFieldErrors(error: z.ZodError): FieldErrors {
@@ -187,6 +198,18 @@ export async function updateNews(
     ) {
       await deps.storage.deleteObject(existing.image.imageKey);
     }
+
+    // secondaryImage is tri-state: undefined = untouched (skip), an object =
+    // replaced, null = explicitly removed — either of the latter two orphans the
+    // previous S3 object.
+    const nextSecondaryImage = parsed.data.secondaryImage;
+    if (
+      nextSecondaryImage !== undefined &&
+      existing.secondaryImage &&
+      existing.secondaryImage.imageKey !== nextSecondaryImage?.imageKey
+    ) {
+      await deps.storage.deleteObject(existing.secondaryImage.imageKey);
+    }
     return ok({ id });
   } catch {
     return err(unexpected("Aktualitu se nepodařilo upravit."));
@@ -200,9 +223,12 @@ export async function deleteNews(
   try {
     const deleted = await deps.news.delete(id);
     if (!deleted) return err(notFound("Aktualita nebyla nalezena."));
-    // Remove the document first, then its S3 image (a storage failure here
+    // Remove the document first, then its S3 image(s) (a storage failure here
     // leaves an orphaned object — the documented, acceptable gap for Phase 3).
     if (deleted.image) await deps.storage.deleteObject(deleted.image.imageKey);
+    if (deleted.secondaryImage) {
+      await deps.storage.deleteObject(deleted.secondaryImage.imageKey);
+    }
     return ok({ id });
   } catch {
     return err(unexpected("Aktualitu se nepodařilo smazat."));

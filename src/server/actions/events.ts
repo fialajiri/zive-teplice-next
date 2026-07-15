@@ -30,6 +30,8 @@ export type ProgramFormInput = {
   message: string;
   imageUrl?: string;
   imageKey?: string;
+  imageWidth?: number;
+  imageHeight?: number;
 };
 
 const FORBIDDEN: EventActionResult = {
@@ -133,10 +135,18 @@ function buildProgramInput(
   if (input?.imageUrl || input?.imageKey) {
     const imageUrl = String(input.imageUrl ?? "");
     const imageKey = String(input.imageKey ?? "");
-    if (!isValidUploadedImage(imageUrl, imageKey, "program")) {
+    const width = Number(input.imageWidth);
+    const height = Number(input.imageHeight);
+    if (
+      !isValidUploadedImage(imageUrl, imageKey, "program") ||
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
       return INVALID_IMAGE;
     }
-    image = { imageUrl, imageKey };
+    image = { imageUrl, imageKey, width, height };
   } else if (requireImage) {
     return INVALID_IMAGE;
   }

@@ -9,14 +9,14 @@ import type {
   EventRepository,
   ProgramDto,
 } from "@/server/domain/event";
-import { toImageDto } from "./mappers";
+import { toUncroppedImageDto } from "./mappers";
 
 function toProgramDto(doc: ProgramDocument): ProgramDto {
   return {
     id: doc._id.toString(),
     title: doc.title,
     message: doc.message ?? null,
-    image: toImageDto(doc.image),
+    image: toUncroppedImageDto(doc.image),
   };
 }
 

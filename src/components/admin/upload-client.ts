@@ -2,7 +2,14 @@
 // bulk BulkImageUpload components. No React, no server imports — pure client I/O
 // against the presign route and S3.
 
-export type UploadedImage = { imageUrl: string; imageKey: string };
+// width/height are only populated for uncropped ("original") uploads — see
+// ImageUpload's aspectRatio="original" mode.
+export type UploadedImage = {
+  imageUrl: string;
+  imageKey: string;
+  width?: number;
+  height?: number;
+};
 
 export type PresignedUpload = {
   uploadUrl: string;

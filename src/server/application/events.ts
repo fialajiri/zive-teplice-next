@@ -62,9 +62,13 @@ export type EventWriteDeps = {
   storage: StoragePort;
 };
 
-const imageInputSchema = z.object({
+// Program's image is never cropped — width/height are required so the public
+// page can size an exact-aspect-ratio container.
+const uncroppedImageInputSchema = z.object({
   imageUrl: z.url(),
   imageKey: z.string().trim().min(1),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
 });
 
 // Legacy `routes/event.js`: title 10–100, year a 4-digit number.
@@ -100,13 +104,13 @@ const messageSchema = z
 const addProgramSchema = z.object({
   title: programTitleSchema,
   message: messageSchema,
-  image: imageInputSchema,
+  image: uncroppedImageInputSchema,
 });
 
 const updateProgramSchema = z.object({
   title: programTitleSchema,
   message: messageSchema,
-  image: imageInputSchema.optional(),
+  image: uncroppedImageInputSchema.optional(),
 });
 
 function toFieldErrors(error: z.ZodError): FieldErrors {

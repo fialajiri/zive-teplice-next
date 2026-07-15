@@ -1,5 +1,5 @@
 import "server-only";
-import type { ImageDto } from "@/server/domain/news";
+import type { ImageDto, UncroppedImageDto } from "@/server/domain/news";
 
 // Legacy image URLs are stored against the raw S3 origin. Those originals are
 // full-resolution (10–16 MB), and next/image's optimizer has a hard-coded 7s upstream
@@ -22,4 +22,25 @@ export function toImageDto(
 ): ImageDto | null {
   if (!image?.imageUrl || !image?.imageKey) return null;
   return { imageUrl: toPublicUrl(image.imageUrl), imageKey: image.imageKey };
+}
+
+// Uncropped images store their real width/height so the display side can size an
+// exact-aspect-ratio container. Program posters uploaded before this field existed
+// have no stored dimensions — fall back to 16:9, which matches the crop they were
+// saved with, so old posters keep rendering correctly.
+export function toUncroppedImageDto(
+  image?: {
+    imageUrl?: string;
+    imageKey?: string;
+    width?: number;
+    height?: number;
+  } | null,
+): UncroppedImageDto | null {
+  if (!image?.imageUrl || !image?.imageKey) return null;
+  return {
+    imageUrl: toPublicUrl(image.imageUrl),
+    imageKey: image.imageKey,
+    width: image.width && image.width > 0 ? image.width : 16,
+    height: image.height && image.height > 0 ? image.height : 9,
+  };
 }

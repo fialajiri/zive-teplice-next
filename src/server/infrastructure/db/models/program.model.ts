@@ -5,7 +5,12 @@ export type ProgramDocument = {
   _id: Types.ObjectId;
   title: string;
   message?: string;
-  image?: { imageUrl?: string; imageKey?: string };
+  image?: {
+    imageUrl?: string;
+    imageKey?: string;
+    width?: number;
+    height?: number;
+  };
 };
 
 const programSchema = new Schema<ProgramDocument>({
@@ -14,6 +19,8 @@ const programSchema = new Schema<ProgramDocument>({
   image: {
     imageUrl: { type: String },
     imageKey: { type: String },
+    width: { type: Number },
+    height: { type: Number },
   },
 });
 

@@ -3,7 +3,7 @@ import { isValidObjectId } from "mongoose";
 import { connectToDatabase } from "../connection";
 import { NewsModel, type NewsDocument } from "../models/news.model";
 import type { NewsDto, NewsRepository } from "@/server/domain/news";
-import { toImageDto } from "./mappers";
+import { toImageDto, toUncroppedImageDto } from "./mappers";
 
 function toNewsDto(doc: NewsDocument): NewsDto {
   return {
@@ -11,6 +11,7 @@ function toNewsDto(doc: NewsDocument): NewsDto {
     title: doc.title,
     message: doc.message ?? null,
     image: toImageDto(doc.image),
+    secondaryImage: toUncroppedImageDto(doc.secondaryImage),
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };
@@ -54,6 +55,7 @@ export function createNewsRepository(): NewsRepository {
         title: input.title,
         message: input.message,
         image: input.image,
+        secondaryImage: input.secondaryImage,
       });
       return doc._id.toString();
     },
@@ -61,17 +63,23 @@ export function createNewsRepository(): NewsRepository {
       if (!isValidObjectId(id)) return null;
       await connectToDatabase();
       // Replace `image` only when a new one is supplied — otherwise the existing
-      // image (and its S3 key) is left untouched.
+      // image (and its S3 key) is left untouched. `secondaryImage` is tri-state:
+      // undefined = leave alone, an object = set/replace, null = explicitly remove.
       const set: Record<string, unknown> = {
         title: input.title,
         message: input.message,
       };
+      const unset: Record<string, unknown> = {};
       if (input.image) set.image = input.image;
-      const doc = await NewsModel.findByIdAndUpdate(
-        id,
-        { $set: set },
-        { returnDocument: "after" },
-      ).lean<NewsDocument | null>();
+      if (input.secondaryImage !== undefined) {
+        if (input.secondaryImage === null) unset.secondaryImage = "";
+        else set.secondaryImage = input.secondaryImage;
+      }
+      const updateOp: Record<string, unknown> = { $set: set };
+      if (Object.keys(unset).length > 0) updateOp.$unset = unset;
+      const doc = await NewsModel.findByIdAndUpdate(id, updateOp, {
+        returnDocument: "after",
+      }).lean<NewsDocument | null>();
       return doc ? toNewsDto(doc) : null;
     },
     async delete(id) {

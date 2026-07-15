@@ -2,28 +2,39 @@
 
 export type ImageDto = { imageUrl: string; imageKey: string };
 
+// An image stored without a forced crop — the display side needs the real
+// dimensions to size its container to the exact aspect ratio (no crop, no
+// letterboxing). Used for the program poster and news' optional second image.
+export type UncroppedImageDto = ImageDto & { width: number; height: number };
+
 export type NewsDto = {
   id: string;
   title: string;
   message: string | null;
   image: ImageDto | null;
+  // Optional, uncropped second image (e.g. a flyer or site map) shown in full
+  // on the detail page, below the cropped preview image.
+  secondaryImage: UncroppedImageDto | null;
   createdAt: string;
   updatedAt: string;
 };
 
 // Write inputs are the already-validated, already-sanitized shapes the use case
 // hands to the repository. Image is required on create; on update it is only
-// present when the admin is replacing the existing image.
+// present when the admin is replacing the existing image. secondaryImage is
+// always optional; on update `null` means "explicitly removed".
 export type CreateNewsInput = {
   title: string;
   message: string;
   image: ImageDto;
+  secondaryImage?: UncroppedImageDto;
 };
 
 export type UpdateNewsInput = {
   title: string;
   message: string;
   image?: ImageDto;
+  secondaryImage?: UncroppedImageDto | null;
 };
 
 export type NewsRepository = {

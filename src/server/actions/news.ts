@@ -9,7 +9,7 @@ import {
   deleteNews,
   type NewsWriteDeps,
 } from "@/server/application/news";
-import type { ImageDto } from "@/server/domain/news";
+import type { ImageDto, UncroppedImageDto } from "@/server/domain/news";
 import type { DomainError, FieldErrors } from "@/server/domain/result";
 import { sanitizeRichText } from "@/lib/sanitize-html";
 import { isValidUploadedImage } from "@/server/actions/image-ref";
@@ -23,6 +23,11 @@ export type CreateNewsFormInput = {
   message: string;
   imageUrl: string;
   imageKey: string;
+  // Optional, uncropped second image (e.g. a flyer or site map).
+  secondaryImageUrl?: string;
+  secondaryImageKey?: string;
+  secondaryImageWidth?: number;
+  secondaryImageHeight?: number;
 };
 
 export type UpdateNewsFormInput = {
@@ -31,6 +36,13 @@ export type UpdateNewsFormInput = {
   // Present only when the admin is replacing the existing image.
   imageUrl?: string;
   imageKey?: string;
+  // Present only when the admin uploaded a new second image.
+  secondaryImageUrl?: string;
+  secondaryImageKey?: string;
+  secondaryImageWidth?: number;
+  secondaryImageHeight?: number;
+  // Present when the admin explicitly removed the second image.
+  removeSecondaryImage?: boolean;
 };
 
 const FORBIDDEN: NewsActionResult = {
@@ -44,8 +56,52 @@ const INVALID_IMAGE: NewsActionResult = {
   fieldErrors: { image: ["Nahrajte prosím platný obrázek (PNG nebo JPG)."] },
 };
 
+const INVALID_SECONDARY_IMAGE: NewsActionResult = {
+  ok: false,
+  error: "Neplatný druhý obrázek.",
+  fieldErrors: {
+    secondaryImage: ["Nahrajte prosím platný obrázek (PNG nebo JPG)."],
+  },
+};
+
 function writeDeps(): NewsWriteDeps {
   return { news: container.newsRepository, storage: container.storage };
+}
+
+type SecondaryImageInput = {
+  secondaryImageUrl?: string;
+  secondaryImageKey?: string;
+  secondaryImageWidth?: number;
+  secondaryImageHeight?: number;
+};
+
+type SecondaryImageParseResult =
+  | { ok: true; value: UncroppedImageDto | undefined }
+  | { ok: false; result: NewsActionResult };
+
+// secondaryImage is fully optional — absent url/key means "not supplied". When
+// present, it must carry valid width/height (it's never cropped, so the display
+// side relies on them for the exact aspect ratio).
+function parseSecondaryImage(
+  input: SecondaryImageInput,
+): SecondaryImageParseResult {
+  if (!input.secondaryImageUrl && !input.secondaryImageKey) {
+    return { ok: true, value: undefined };
+  }
+  const imageUrl = String(input.secondaryImageUrl ?? "");
+  const imageKey = String(input.secondaryImageKey ?? "");
+  const width = Number(input.secondaryImageWidth);
+  const height = Number(input.secondaryImageHeight);
+  if (
+    !isValidUploadedImage(imageUrl, imageKey, "news") ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    return { ok: false, result: INVALID_SECONDARY_IMAGE };
+  }
+  return { ok: true, value: { imageUrl, imageKey, width, height } };
 }
 
 function mapError(error: DomainError): NewsActionResult {
@@ -76,10 +132,14 @@ export async function createNewsAction(
 
   if (!isValidUploadedImage(imageUrl, imageKey, "news")) return INVALID_IMAGE;
 
+  const secondaryImage = parseSecondaryImage(input);
+  if (!secondaryImage.ok) return secondaryImage.result;
+
   const result = await createNews(writeDeps(), {
     title,
     message,
     image: { imageUrl, imageKey },
+    secondaryImage: secondaryImage.value,
   });
   if (!result.ok) return mapError(result.error);
 
@@ -106,7 +166,23 @@ export async function updateNewsAction(
     image = { imageUrl, imageKey };
   }
 
-  const result = await updateNews(writeDeps(), id, { title, message, image });
+  // secondaryImage is tri-state: explicit removal, a fresh replacement, or
+  // untouched (omit entirely so the repo leaves the existing one alone).
+  let secondaryImage: UncroppedImageDto | null | undefined;
+  if (input?.removeSecondaryImage) {
+    secondaryImage = null;
+  } else {
+    const parsed = parseSecondaryImage(input ?? {});
+    if (!parsed.ok) return parsed.result;
+    secondaryImage = parsed.value;
+  }
+
+  const result = await updateNews(writeDeps(), id, {
+    title,
+    message,
+    image,
+    secondaryImage,
+  });
   if (!result.ok) return mapError(result.error);
 
   revalidateNews(id);

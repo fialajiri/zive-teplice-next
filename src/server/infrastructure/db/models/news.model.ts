@@ -6,6 +6,12 @@ export type NewsDocument = {
   title: string;
   message?: string;
   image?: { imageUrl?: string; imageKey?: string };
+  secondaryImage?: {
+    imageUrl?: string;
+    imageKey?: string;
+    width?: number;
+    height?: number;
+  };
   createdAt: Date;
   updatedAt: Date;
 };
@@ -17,6 +23,12 @@ const newsSchema = new Schema<NewsDocument>(
     image: {
       imageUrl: { type: String },
       imageKey: { type: String },
+    },
+    secondaryImage: {
+      imageUrl: { type: String },
+      imageKey: { type: String },
+      width: { type: Number },
+      height: { type: Number },
     },
   },
   { timestamps: true },

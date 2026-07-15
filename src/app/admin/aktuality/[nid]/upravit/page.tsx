@@ -40,6 +40,7 @@ export default async function EditNewsPage({
           title: news.title,
           message: news.message ?? "",
           image: news.image,
+          secondaryImage: news.secondaryImage,
         }}
       />
     </div>

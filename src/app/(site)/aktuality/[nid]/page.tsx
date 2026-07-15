@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { container } from "@/server/container";
 import { getNews } from "@/server/application/news";
 import { RichText } from "@/components/site/rich-text";
+import { ImageLightbox } from "@/components/site/image-lightbox";
 import { formatCzechDate } from "@/lib/dates";
 import { htmlToExcerpt } from "@/lib/html";
 
@@ -71,6 +72,15 @@ export default async function NewsDetailPage({
         </div>
       ) : null}
       {news.message ? <RichText html={news.message} /> : null}
+      {news.secondaryImage ? (
+        <ImageLightbox
+          src={news.secondaryImage.imageUrl}
+          alt={news.title}
+          width={news.secondaryImage.width}
+          height={news.secondaryImage.height}
+          className="mt-8"
+        />
+      ) : null}
     </article>
   );
 }

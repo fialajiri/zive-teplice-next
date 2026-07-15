@@ -32,8 +32,11 @@ type ImageUploadProps = {
   prefix?: UploadPrefix;
   /** Width/height ratio of where this image is actually displayed (e.g. 4/3 for
    * performer cards, 16/9 for news, 1 for gallery covers) — the crop dialog and
-   * preview box are constrained to this so what you crop is what you get. */
-  aspectRatio: number;
+   * preview box are constrained to this so what you crop is what you get.
+   * Pass "original" to skip cropping entirely (e.g. flyers/posters that must be
+   * shown in full) — the image's real width/height is captured instead and
+   * reported back via onChange. */
+  aspectRatio: number | "original";
   /** Accessible label for the preview image (defaults to a generic caption). */
   alt?: string;
   ariaInvalid?: boolean;
@@ -73,6 +76,15 @@ export function ImageUpload({
       setStatus("compressing");
       const compressed = await compressImage(file);
 
+      // "original" mode never crops — record the final (post-compression) pixel
+      // dimensions so the public page can size an exact-aspect-ratio container.
+      let dimensions: { width: number; height: number } | undefined;
+      if (aspectRatio === "original") {
+        const bitmap = await createImageBitmap(compressed);
+        dimensions = { width: bitmap.width, height: bitmap.height };
+        bitmap.close();
+      }
+
       setStatus("uploading");
       const [target] = await requestPresign(prefix, [compressed]);
 
@@ -83,7 +95,11 @@ export function ImageUpload({
         setProgress,
       );
 
-      onChange({ imageUrl: target.publicUrl, imageKey: target.key });
+      onChange({
+        imageUrl: target.publicUrl,
+        imageKey: target.key,
+        ...dimensions,
+      });
       setStatus("idle");
     } catch {
       setStatus("error");
@@ -107,6 +123,13 @@ export function ImageUpload({
     if (file.size > MAX_ORIGINAL_BYTES) {
       setStatus("error");
       setError("Obrázek je příliš velký (max 35 MB).");
+      return;
+    }
+
+    // "original" mode skips cropping entirely — straight to compress + upload,
+    // same as BulkImageUpload's crop-free flow.
+    if (aspectRatio === "original") {
+      void uploadFile(file);
       return;
     }
 
@@ -164,7 +187,7 @@ export function ImageUpload({
         aria-describedby={describedBy}
       />
 
-      {cropSrc ? (
+      {cropSrc && typeof aspectRatio === "number" ? (
         <ImageCropDialog
           imageUrl={cropSrc}
           aspectRatio={aspectRatio}
@@ -175,8 +198,11 @@ export function ImageUpload({
 
       {preview ? (
         <div
-          className="border-input relative w-full max-w-md overflow-hidden rounded-lg border"
-          style={{ aspectRatio }}
+          className={cn(
+            "border-input relative w-full max-w-md overflow-hidden rounded-lg border",
+            aspectRatio === "original" && "h-80",
+          )}
+          style={typeof aspectRatio === "number" ? { aspectRatio } : undefined}
         >
           {/* Unoptimized: local blob previews and just-uploaded objects aren't served through next/image. */}
           <Image
@@ -184,7 +210,9 @@ export function ImageUpload({
             alt={alt}
             fill
             sizes="(min-width: 768px) 448px, 100vw"
-            className="object-cover"
+            className={
+              aspectRatio === "original" ? "object-contain" : "object-cover"
+            }
             unoptimized
           />
           {status === "compressing" || status === "uploading" ? (

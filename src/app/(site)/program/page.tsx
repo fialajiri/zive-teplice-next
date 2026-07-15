@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { container } from "@/server/container";
 import { getCurrentEvent } from "@/server/application/events";
 import { PageHeader } from "@/components/site/page-header";
 import { RichText } from "@/components/site/rich-text";
+import { ImageLightbox } from "@/components/site/image-lightbox";
 
 // Always server-rendered so admin changes appear immediately (no ISR window).
 export const dynamic = "force-dynamic";
@@ -40,15 +40,14 @@ export default async function ProgramPage() {
         <article className="mx-auto max-w-3xl">
           <h2 className="mb-4 text-2xl font-semibold">{program.title}</h2>
           {program.image ? (
-            <div className="bg-muted relative mb-6 aspect-[16/9] overflow-hidden rounded-xl">
-              <Image
-                src={program.image.imageUrl}
-                alt=""
-                fill
-                sizes="(min-width: 768px) 768px, 100vw"
-                className="object-cover"
-              />
-            </div>
+            <ImageLightbox
+              src={program.image.imageUrl}
+              alt={program.title}
+              width={program.image.width}
+              height={program.image.height}
+              className="mb-6"
+              priority
+            />
           ) : null}
           {program.message ? <RichText html={program.message} /> : null}
         </article>

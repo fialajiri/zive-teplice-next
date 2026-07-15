@@ -1,10 +1,11 @@
-import type { ImageDto } from "./news";
+import type { UncroppedImageDto } from "./news";
 
 export type ProgramDto = {
   id: string;
   title: string;
   message: string | null;
-  image: ImageDto | null;
+  // Never cropped — often a vertical flyer, shown in full via its own aspect ratio.
+  image: UncroppedImageDto | null;
 };
 
 export type EventDto = {
@@ -30,7 +31,7 @@ export type ProgramInput = {
   title: string;
   message: string;
   // Required when adding a program; optional on update (only when replacing it).
-  image?: ImageDto;
+  image?: UncroppedImageDto;
 };
 
 export type EventRepository = {
