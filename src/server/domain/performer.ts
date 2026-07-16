@@ -71,8 +71,17 @@ export type PerformerSearchResult = {
 // deliberately username-only) and returns the account-level DTO.
 export type PerformerAdminSearchParams = {
   query?: string;
+  /** Restrict to a single participation status (the "Účast" column filter). */
+  status?: ParticipationStatus;
   page: number;
   pageSize: number;
+};
+
+// Same match rules as PerformerAdminSearchParams, without pagination — backs the
+// admin Excel export, which needs every matching row rather than one page.
+export type PerformerAdminListParams = {
+  query?: string;
+  status?: ParticipationStatus;
 };
 
 export type PerformerRepository = {
@@ -84,6 +93,10 @@ export type PerformerRepository = {
   searchForAdmin(
     params: PerformerAdminSearchParams,
   ): Promise<Page<PerformerAccountDto>>;
+  /** Every performer matching the filters, unpaginated — for the admin Excel export. */
+  listAllForAdmin(
+    params: PerformerAdminListParams,
+  ): Promise<PerformerAccountDto[]>;
   // ── Write path ──────────────────────────────────────────────────────────────
   /** Persist a new performer (`role:"user"`, `request:"notsend"`); returns its id. */
   create(input: CreatePerformerInput): Promise<string>;

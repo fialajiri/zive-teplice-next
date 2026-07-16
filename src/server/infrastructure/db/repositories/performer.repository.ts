@@ -5,6 +5,7 @@ import { UserModel, type UserDocument } from "../models/user.model";
 import type {
   ParticipationStatus,
   PerformerAccountDto,
+  PerformerAdminListParams,
   PerformerAdminSearchParams,
   PerformerDto,
   PerformerRepository,
@@ -73,6 +74,25 @@ function toParticipationStatus(value: string | undefined): ParticipationStatus {
     : "notsend";
 }
 
+// Shared by searchForAdmin/listAllForAdmin — both match username OR email and
+// optionally restrict to a single participation status.
+function buildAdminFilter({
+  query,
+  status,
+}: PerformerAdminListParams): Record<string, unknown> {
+  const filter: Record<string, unknown> = { role: "user" };
+  const trimmed = query?.trim();
+  if (trimmed) {
+    const pattern = diacriticInsensitivePattern(trimmed);
+    filter.$or = [
+      { username: { $regex: pattern, $options: "i" } },
+      { email: { $regex: pattern, $options: "i" } },
+    ];
+  }
+  if (status) filter.request = status;
+  return filter;
+}
+
 function toPerformerAccountDto(doc: UserDocument): PerformerAccountDto {
   return {
     id: doc._id.toString(),
@@ -133,19 +153,12 @@ export function createPerformerRepository(): PerformerRepository {
     },
     async searchForAdmin({
       query,
+      status,
       page,
       pageSize,
     }: PerformerAdminSearchParams): Promise<Page<PerformerAccountDto>> {
       await connectToDatabase();
-      const filter: Record<string, unknown> = { role: "user" };
-      const trimmed = query?.trim();
-      if (trimmed) {
-        const pattern = diacriticInsensitivePattern(trimmed);
-        filter.$or = [
-          { username: { $regex: pattern, $options: "i" } },
-          { email: { $regex: pattern, $options: "i" } },
-        ];
-      }
+      const filter = buildAdminFilter({ query, status });
       const [docs, total] = await Promise.all([
         // `_id` is a tiebreaker: username alone isn't guaranteed unique enough
         // to keep .skip/.limit deterministic.
@@ -157,6 +170,17 @@ export function createPerformerRepository(): PerformerRepository {
         UserModel.countDocuments(filter),
       ]);
       return { items: docs.map(toPerformerAccountDto), total };
+    },
+    async listAllForAdmin({
+      query,
+      status,
+    }: PerformerAdminListParams): Promise<PerformerAccountDto[]> {
+      await connectToDatabase();
+      const filter = buildAdminFilter({ query, status });
+      const docs = await UserModel.find(filter)
+        .sort({ username: 1, _id: 1 })
+        .lean<UserDocument[]>();
+      return docs.map(toPerformerAccountDto);
     },
     async create(input) {
       await connectToDatabase();

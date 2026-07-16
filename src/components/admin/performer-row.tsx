@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { PerformerAccountDto } from "@/server/domain/performer";
 import { ParticipationDecisionButtons } from "@/components/admin/participation-decision-buttons";
 import { ParticipationStatusBadge } from "@/components/admin/participation-status-badge";
+import { EventParticipationButton } from "@/components/admin/event-participation-button";
 import { DeletePerformerButton } from "@/components/admin/delete-performer-button";
 import { PerformerDetailDialog } from "@/components/admin/performer-detail-dialog";
 
@@ -36,13 +37,27 @@ export function PerformerRow({
         onClick={() => setOpen(true)}
         onKeyDown={handleKeyDown}
       >
-        <td className="px-4 py-3 font-medium">{performer.username}</td>
-        <td className="text-muted-foreground px-4 py-3">{performer.email}</td>
-        <td className="text-muted-foreground px-4 py-3">
-          {performer.phoneNumber}
+        <td
+          className="truncate px-4 py-3 font-medium"
+          title={performer.username}
+        >
+          {performer.username}
+        </td>
+        <td
+          className="text-muted-foreground truncate px-4 py-3"
+          title={performer.email}
+        >
+          {performer.email}
         </td>
         <td className="px-4 py-3">
           <ParticipationStatusBadge status={performer.request} />
+        </td>
+        <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+          <EventParticipationButton
+            performerId={performer.id}
+            username={performer.username}
+            status={performer.request}
+          />
         </td>
         <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
           <div className="flex items-center justify-end gap-2">

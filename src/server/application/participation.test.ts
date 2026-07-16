@@ -3,6 +3,7 @@ import {
   requestParticipation,
   decideParticipation,
   searchPerformersForAdmin,
+  listPerformersForAdminExport,
 } from "./participation";
 import type {
   ParticipationStatus,
@@ -34,6 +35,7 @@ function makeRepo(request: ParticipationStatus): {
     search: vi.fn(),
     getById: vi.fn(),
     searchForAdmin: vi.fn(),
+    listAllForAdmin: vi.fn(),
     create: vi.fn(),
     findByEmail: vi.fn(),
     existsByUsername: vi.fn(),
@@ -178,6 +180,52 @@ describe("searchPerformersForAdmin", () => {
     });
 
     const result = await searchPerformersForAdmin(repo, {});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe("unexpected");
+  });
+
+  it("passes the status filter through to the repository", async () => {
+    const { repo } = makeRepo("pending");
+    const searchForAdmin = vi.fn(async () => ({ items: [], total: 0 }));
+    repo.searchForAdmin = searchForAdmin;
+
+    await searchPerformersForAdmin(repo, { status: "approved" });
+
+    expect(searchForAdmin).toHaveBeenCalledWith({
+      query: undefined,
+      status: "approved",
+      page: 1,
+      pageSize: 20,
+    });
+  });
+});
+
+describe("listPerformersForAdminExport", () => {
+  it("trims the query and passes the status filter through", async () => {
+    const { repo } = makeRepo("pending");
+    const listAllForAdmin = vi.fn(async () => [accountWith("approved")]);
+    repo.listAllForAdmin = listAllForAdmin;
+
+    const result = await listPerformersForAdminExport(repo, {
+      query: "  jana  ",
+      status: "approved",
+    });
+
+    expect(result).toEqual({ ok: true, value: [accountWith("approved")] });
+    expect(listAllForAdmin).toHaveBeenCalledWith({
+      query: "jana",
+      status: "approved",
+    });
+  });
+
+  it("returns unexpected on a repository failure", async () => {
+    const { repo } = makeRepo("pending");
+    repo.listAllForAdmin = vi.fn(async () => {
+      throw new Error("db down");
+    });
+
+    const result = await listPerformersForAdminExport(repo, {});
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.kind).toBe("unexpected");

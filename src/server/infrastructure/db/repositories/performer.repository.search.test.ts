@@ -171,4 +171,34 @@ describe("performer repository searchForAdmin (integration)", () => {
     expect(pageOne.items).toHaveLength(2);
     expect(pageTwo.items).toHaveLength(1);
   });
+
+  it("restricts to a single status when status is set", async () => {
+    const { items, total } = await repo.searchForAdmin({
+      status: "pending",
+      page: 1,
+      pageSize: 12,
+    });
+    expect(total).toBe(1);
+    expect(items[0]?.username).toBe("Pending Person");
+  });
+});
+
+describe("performer repository listAllForAdmin (integration)", () => {
+  it("returns every non-admin performer, unpaginated", async () => {
+    const items = await repo.listAllForAdmin({});
+    expect(items).toHaveLength(3);
+  });
+
+  it("combines query and status filters", async () => {
+    const items = await repo.listAllForAdmin({
+      query: "alena",
+      status: "approved",
+    });
+    expect(items.map((i) => i.username)).toEqual(["Alena Bošková"]);
+  });
+
+  it("returns an empty array when status matches nothing", async () => {
+    const items = await repo.listAllForAdmin({ status: "rejected" });
+    expect(items).toEqual([]);
+  });
 });

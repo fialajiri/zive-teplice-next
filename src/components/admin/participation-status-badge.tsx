@@ -1,11 +1,5 @@
 import type { ParticipationStatus } from "@/server/domain/performer";
-
-const STATUS_LABEL: Record<ParticipationStatus, string> = {
-  notsend: "Nepodáno",
-  pending: "Čeká",
-  approved: "Schváleno",
-  rejected: "Zamítnuto",
-};
+import { PARTICIPATION_STATUS_LABEL } from "@/lib/participation-status";
 
 const STATUS_CLASS: Record<ParticipationStatus, string> = {
   notsend: "bg-muted text-muted-foreground",
@@ -24,7 +18,7 @@ export function ParticipationStatusBadge({
     <span
       className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_CLASS[status]}`}
     >
-      {STATUS_LABEL[status]}
+      {PARTICIPATION_STATUS_LABEL[status]}
     </span>
   );
 }

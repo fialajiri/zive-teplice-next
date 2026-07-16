@@ -55,7 +55,7 @@ export type PerformerAdminPage = {
 // Admin search — username OR email, paginated. Sorted by username (repo-level).
 export async function searchPerformersForAdmin(
   repo: PerformerRepository,
-  params: { query?: string; page?: number },
+  params: { query?: string; status?: ParticipationStatus; page?: number },
 ): Promise<Result<PerformerAdminPage>> {
   const page = clampPage(params.page);
   const pageSize = ADMIN_PAGE_SIZE;
@@ -63,10 +63,26 @@ export async function searchPerformersForAdmin(
   try {
     const { items, total } = await repo.searchForAdmin({
       query,
+      status: params.status,
       page,
       pageSize,
     });
     return ok({ items, total, page, pageSize });
+  } catch {
+    return err(unexpected("Nepodařilo se načíst účinkující."));
+  }
+}
+
+// Every performer matching the same filters as searchPerformersForAdmin, but
+// unpaginated — backs the admin Excel export ("filtered part", all pages).
+export async function listPerformersForAdminExport(
+  repo: PerformerRepository,
+  params: { query?: string; status?: ParticipationStatus },
+): Promise<Result<PerformerAccountDto[]>> {
+  const query = params.query?.trim() || undefined;
+  try {
+    const items = await repo.listAllForAdmin({ query, status: params.status });
+    return ok(items);
   } catch {
     return err(unexpected("Nepodařilo se načíst účinkující."));
   }
