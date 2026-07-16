@@ -13,6 +13,53 @@ import type { EventDto } from "@/server/domain/event";
 // Always server-rendered so admin changes appear immediately (no ISR window).
 export const dynamic = "force-dynamic";
 
+// Sponsor logos are a fixed, hand-curated set (not admin-editable content),
+// same as the legacy site — hence a plain static array rather than a CMS read.
+// Per-logo height classes (not one uniform size): the source files have very
+// different native aspect ratios, and Sayfy's circular badge needs more
+// height than the others to keep its ring text legible.
+const SPONSORS = [
+  {
+    src: "/img/support/dek.png",
+    alt: "Stavebniny DEK",
+    width: 800,
+    height: 408,
+    className: "h-7 sm:h-8",
+  },
+  {
+    src: "/img/support/teplice.png",
+    alt: "Statutární město Teplice",
+    width: 1039,
+    height: 304,
+    className: "h-5 sm:h-6",
+  },
+  {
+    src: "/img/support/sayfy.webp",
+    alt: "Sayfy z.s.",
+    width: 585,
+    height: 587,
+    className: "h-8 sm:h-9",
+  },
+  {
+    // White-only artwork with no colored variant — swap in a black version
+    // for light mode instead of leaving it invisible on a light background.
+    srcLight: "/img/support/kudyznudy-black.png",
+    srcDark: "/img/support/kudyznudy.png",
+    alt: "Kudy z nudy",
+    width: 3326,
+    height: 734,
+    href: "https://www.kudyznudy.cz/",
+    className: "h-5 sm:h-6",
+  },
+  {
+    src: "/img/support/ulicnik.png",
+    alt: "Uličník",
+    width: 1540,
+    height: 495,
+    className: "h-5 sm:h-6",
+  },
+] as const;
+
 const INTRO_HIGHLIGHTS = [
   {
     icon: Music2,
@@ -117,6 +164,8 @@ export default function HomePage() {
       <Suspense fallback={<LatestNewsSkeleton />}>
         <LatestNewsSection />
       </Suspense>
+
+      <SponsorsSection />
     </div>
   );
 }
@@ -218,6 +267,67 @@ function LatestNewsSkeleton() {
             </div>
           </div>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function SponsorsSection() {
+  return (
+    <section
+      aria-labelledby="home-sponsors-heading"
+      className="mt-6 -mb-10 text-center sm:mt-8 sm:-mb-12"
+    >
+      <h2 id="home-sponsors-heading" className="font-heading text-xl">
+        Děkujeme za podporu
+      </h2>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 sm:mt-8 sm:gap-x-6">
+        {SPONSORS.map((sponsor) => {
+          const imageClassName = `w-auto object-contain ${sponsor.className}`;
+          const logo =
+            "srcLight" in sponsor ? (
+              <>
+                <Image
+                  src={sponsor.srcLight}
+                  alt={sponsor.alt}
+                  width={sponsor.width}
+                  height={sponsor.height}
+                  className={`block dark:hidden ${imageClassName}`}
+                />
+                <Image
+                  src={sponsor.srcDark}
+                  alt={sponsor.alt}
+                  width={sponsor.width}
+                  height={sponsor.height}
+                  className={`hidden dark:block ${imageClassName}`}
+                />
+              </>
+            ) : (
+              <Image
+                src={sponsor.src}
+                alt={sponsor.alt}
+                width={sponsor.width}
+                height={sponsor.height}
+                className={imageClassName}
+              />
+            );
+
+          return "href" in sponsor ? (
+            <a
+              key={sponsor.alt}
+              href={sponsor.href}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="opacity-90 transition-opacity hover:opacity-100"
+            >
+              {logo}
+            </a>
+          ) : (
+            <div key={sponsor.alt} className="opacity-90">
+              {logo}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
