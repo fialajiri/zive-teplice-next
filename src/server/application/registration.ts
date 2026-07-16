@@ -3,6 +3,7 @@ import type { PerformerRepository } from "@/server/domain/performer";
 import type { ImageDto } from "@/server/domain/news";
 import type { PasswordHash } from "@/server/infrastructure/auth/password";
 import type { SettingsRepository } from "@/server/domain/settings";
+import type { EventRepository } from "@/server/domain/event";
 import {
   err,
   ok,
@@ -19,6 +20,7 @@ import {
 export type RegistrationDeps = {
   performers: PerformerRepository;
   settings: SettingsRepository;
+  events: EventRepository;
   hashPassword: (password: string) => Promise<PasswordHash>;
 };
 
@@ -53,12 +55,11 @@ const registerSchema = z
       .string()
       .trim()
       .min(9, { error: "Zadejte platné telefonní číslo." }),
-    // Optional (decided Phase 5 §0): no minimum, capped at 1000.
     description: z
       .string()
       .trim()
-      .max(1000, { error: "Popis může mít nejvýše 1000 znaků." })
-      .default(""),
+      .min(50, { error: "Popis musí mít alespoň 50 znaků." })
+      .max(500, { error: "Popis může mít nejvýše 500 znaků." }),
     image: imageInputSchema,
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -129,6 +130,20 @@ export async function registerUser(
       description: data.description,
       image: data.image,
     });
+
+    // Auto-request participation in the current ročník (decided: registering
+    // implies wanting to take part). Best-effort — a failure here shouldn't
+    // fail the whole registration; the performer just stays "notsend" and can
+    // request participation manually from their account.
+    try {
+      const currentEvent = await deps.events.getCurrent();
+      if (currentEvent) {
+        await deps.performers.setRequest(id, "pending");
+      }
+    } catch {
+      // Ignored — see comment above.
+    }
+
     return ok({ id });
   } catch {
     return err(unexpected("Registraci se nepodařilo dokončit."));

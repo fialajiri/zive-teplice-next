@@ -9,6 +9,8 @@ import { Schema, model, models, type Model, type Types } from "mongoose";
 export type SettingsDocument = {
   _id: Types.ObjectId;
   registrationOpen: boolean;
+  facebookUrl: string;
+  instagramUrl: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -16,6 +18,13 @@ export type SettingsDocument = {
 const settingsSchema = new Schema<SettingsDocument>(
   {
     registrationOpen: { type: Boolean, default: false },
+    // No `default` here (unlike `registrationOpen`): the repository falls back
+    // to the pre-migration hardcoded links only when the field is genuinely
+    // absent (gotcha — a schema-level default would get written by ANY upsert,
+    // e.g. toggling `registrationOpen`, permanently locking in "" before an
+    // admin ever touches these fields).
+    facebookUrl: { type: String },
+    instagramUrl: { type: String },
   },
   { timestamps: true },
 );

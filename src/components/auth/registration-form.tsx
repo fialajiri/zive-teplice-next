@@ -115,16 +115,18 @@ export function RegistrationForm() {
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="description" className="text-sm font-medium">
-          Popis <span className="text-muted-foreground">(nepovinné)</span>
+          Popis
         </label>
         <textarea
           id="description"
           name="description"
           rows={4}
-          maxLength={1000}
+          required
+          minLength={50}
+          maxLength={500}
           aria-invalid={fieldError("description") ? true : undefined}
           aria-describedby={
-            fieldError("description") ? "description-error" : undefined
+            fieldError("description") ? "description-error" : "description-hint"
           }
           className={`${inputClass} h-auto py-2`}
         />
@@ -137,8 +139,8 @@ export function RegistrationForm() {
             {fieldError("description")}
           </p>
         ) : (
-          <p className="text-muted-foreground text-xs">
-            Krátké představení. Můžete doplnit i později.
+          <p id="description-hint" className="text-muted-foreground text-xs">
+            Krátké představení. 50–500 znaků.
           </p>
         )}
       </div>

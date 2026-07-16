@@ -106,9 +106,9 @@ describe("createGallery", () => {
     }
   });
 
-  it("rejects a too-long name (> 15)", async () => {
+  it("rejects a too-long name (> 30)", async () => {
     const result = await createGallery(depsWith({}), {
-      name: "Příliš dlouhý název galerie",
+      name: "Příliš dlouhý název galerie, který přesahuje limit",
       featuredImage: validFeatured,
     });
     expect(result.ok).toBe(false);

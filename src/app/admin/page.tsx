@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { container } from "@/server/container";
-import { getRegistrationOpen } from "@/server/application/settings";
+import {
+  getRegistrationOpen,
+  getSocialLinks,
+} from "@/server/application/settings";
 import { RegistrationToggle } from "@/components/admin/registration-toggle";
+import { SocialLinksForm } from "@/components/admin/social-links-form";
 
 export const metadata: Metadata = {
   title: "Administrace",
@@ -10,9 +14,10 @@ export const metadata: Metadata = {
 
 export default async function AdminPage() {
   const session = await auth();
-  const registrationOpen = await getRegistrationOpen(
-    container.settingsRepository,
-  );
+  const [registrationOpen, socialLinks] = await Promise.all([
+    getRegistrationOpen(container.settingsRepository),
+    getSocialLinks(container.settingsRepository),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -25,6 +30,10 @@ export default async function AdminPage() {
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium">Nastavení</h2>
         <RegistrationToggle open={registrationOpen} />
+        <SocialLinksForm
+          facebookUrl={socialLinks.facebookUrl}
+          instagramUrl={socialLinks.instagramUrl}
+        />
       </section>
     </div>
   );

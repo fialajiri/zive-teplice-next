@@ -29,9 +29,20 @@ export default async function AdminLayout({
       <header className="border-border/60 border-b">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
           <div className="flex items-center gap-6">
-            <Link href="/admin" className="font-semibold tracking-tight">
-              Administrace
-            </Link>
+            <div className="flex items-center gap-2 font-semibold tracking-tight">
+              <Link href="/" aria-label="Živé Teplice — domů">
+                <img
+                  src="/img/logo.svg"
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="h-7 w-7"
+                />
+              </Link>
+              <Link href="/admin" className="hidden sm:inline">
+                Administrace
+              </Link>
+            </div>
             <nav aria-label="Administrace" className="flex items-center gap-4">
               <Link
                 href="/admin/aktuality"

@@ -77,12 +77,13 @@ const imageInputSchema = z.object({
   imageKey: z.string().trim().min(1),
 });
 
-// Legacy `routes/gallery.js`: name length 4–15.
+// Legacy `routes/gallery.js` capped this at 15; raised to 30 (decided later)
+// to fit more descriptive gallery names.
 const nameSchema = z
   .string()
   .trim()
   .min(4, { error: "Název galerie musí mít alespoň 4 znaky." })
-  .max(15, { error: "Název galerie může mít nejvýše 15 znaků." });
+  .max(30, { error: "Název galerie může mít nejvýše 30 znaků." });
 
 const createGallerySchema = z.object({
   name: nameSchema,

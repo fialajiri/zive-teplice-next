@@ -64,7 +64,7 @@ export function GalleryCreateForm() {
           onChange={(e) => setName(e.target.value)}
           required
           minLength={4}
-          maxLength={15}
+          maxLength={30}
           aria-invalid={fieldError("name") ? true : undefined}
           aria-describedby={fieldError("name") ? "name-error" : undefined}
           className={inputClass}
@@ -74,7 +74,7 @@ export function GalleryCreateForm() {
             {fieldError("name")}
           </p>
         ) : (
-          <p className="text-muted-foreground text-xs">4–15 znaků.</p>
+          <p className="text-muted-foreground text-xs">4–30 znaků.</p>
         )}
       </div>
 

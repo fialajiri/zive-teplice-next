@@ -8,15 +8,22 @@ const FOOTER_NAV = [
   { href: "/kontakt", label: "Kontakt" },
 ] as const;
 
-const SOCIAL_LINKS = [
-  { href: "https://www.facebook.com/ZiveTeplice2023", label: "Facebook" },
-  { href: "https://www.instagram.com/zive_teplice/", label: "Instagram" },
-] as const;
-
 const linkClass = "hover:text-foreground transition-colors";
 
-export function SiteFooter() {
+export function SiteFooter({
+  socialLinks,
+}: {
+  socialLinks: { facebookUrl: string; instagramUrl: string };
+}) {
   const year = new Date().getFullYear();
+  const social = [
+    socialLinks.facebookUrl
+      ? { href: socialLinks.facebookUrl, label: "Facebook" }
+      : null,
+    socialLinks.instagramUrl
+      ? { href: socialLinks.instagramUrl, label: "Instagram" }
+      : null,
+  ].filter((item) => item !== null);
 
   return (
     <footer className="border-border/60 mt-16 border-t">
@@ -52,15 +59,15 @@ export function SiteFooter() {
                 +420 607 720 869
               </a>
             </li>
-            {SOCIAL_LINKS.map((social) => (
-              <li key={social.href}>
+            {social.map((item) => (
+              <li key={item.href}>
                 <a
-                  href={social.href}
+                  href={item.href}
                   target="_blank"
                   rel="noreferrer noopener"
                   className={linkClass}
                 >
-                  {social.label}
+                  {item.label}
                 </a>
               </li>
             ))}
