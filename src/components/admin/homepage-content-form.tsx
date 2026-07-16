@@ -6,6 +6,14 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   HomepageImageField,
   type HomepageImageFieldValue,
 } from "@/components/admin/homepage-image-field";
@@ -70,6 +78,7 @@ export function HomepageContentForm({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
   const [heroImage, setHeroImage] = useState<HomepageImageFieldValue>(
     content.heroImage,
   );
@@ -97,20 +106,14 @@ export function HomepageContentForm({
   }
 
   // Only resets the unsaved form/preview state — nothing is persisted until
-  // "Uložit změny" is clicked, so a confirm is enough friction against
-  // accidentally discarding in-progress edits.
-  function handleRestoreDefaults() {
-    if (
-      !window.confirm(
-        "Obnovit výchozí obsah úvodní stránky? Neuložené změny budou ztraceny.",
-      )
-    ) {
-      return;
-    }
+  // "Uložit změny" is clicked, so the confirm dialog is enough friction
+  // against accidentally discarding in-progress edits.
+  function confirmRestoreDefaults() {
     setHeroImage(DEFAULT_HOMEPAGE_CONTENT.heroImage);
     setAboutText(DEFAULT_HOMEPAGE_CONTENT.aboutText);
     setAboutImage(DEFAULT_HOMEPAGE_CONTENT.aboutImage);
     setHighlights(DEFAULT_HOMEPAGE_CONTENT.highlights);
+    setConfirmRestoreOpen(false);
   }
 
   function handleSave() {
@@ -211,12 +214,40 @@ export function HomepageContentForm({
             type="button"
             variant="outline"
             disabled={pending}
-            onClick={handleRestoreDefaults}
+            onClick={() => setConfirmRestoreOpen(true)}
           >
             Obnovit výchozí
           </Button>
         </div>
       </div>
+
+      <Dialog open={confirmRestoreOpen} onOpenChange={setConfirmRestoreOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Obnovit výchozí obsah?</DialogTitle>
+            <DialogDescription>
+              Neuložené změny ve formuláři budou ztraceny. Obnovený obsah se
+              projeví na webu až po uložení.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmRestoreOpen(false)}
+            >
+              Zrušit
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmRestoreDefaults}
+            >
+              Obnovit výchozí
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex flex-col gap-2">
         <span className="text-muted-foreground text-sm font-medium">
