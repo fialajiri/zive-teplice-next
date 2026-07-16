@@ -13,10 +13,11 @@ import { HomepageHighlightFields } from "@/components/admin/homepage-highlight-f
 import { HomepagePreview } from "@/components/admin/homepage-preview";
 import { updateHomepageContentAction } from "@/server/actions/homepage-content";
 import { HIGHLIGHT_ICONS } from "@/components/site/about-section";
-import type {
-  HomepageContentDto,
-  HomepageHighlightDto,
-  HomepageHighlightsDto,
+import {
+  DEFAULT_HOMEPAGE_CONTENT,
+  type HomepageContentDto,
+  type HomepageHighlightDto,
+  type HomepageHighlightsDto,
 } from "@/server/domain/homepage-content";
 
 const ABOUT_TEXT_MIN = 50;
@@ -93,6 +94,23 @@ export function HomepageContentForm({
       // index, never push/splice.
       return copy as unknown as HomepageHighlightsDto;
     });
+  }
+
+  // Only resets the unsaved form/preview state — nothing is persisted until
+  // "Uložit změny" is clicked, so a confirm is enough friction against
+  // accidentally discarding in-progress edits.
+  function handleRestoreDefaults() {
+    if (
+      !window.confirm(
+        "Obnovit výchozí obsah úvodní stránky? Neuložené změny budou ztraceny.",
+      )
+    ) {
+      return;
+    }
+    setHeroImage(DEFAULT_HOMEPAGE_CONTENT.heroImage);
+    setAboutText(DEFAULT_HOMEPAGE_CONTENT.aboutText);
+    setAboutImage(DEFAULT_HOMEPAGE_CONTENT.aboutImage);
+    setHighlights(DEFAULT_HOMEPAGE_CONTENT.highlights);
   }
 
   function handleSave() {
@@ -181,13 +199,21 @@ export function HomepageContentForm({
           </ul>
         ) : null}
 
-        <div>
+        <div className="flex gap-3">
           <Button
             type="button"
             disabled={pending || errors.length > 0}
             onClick={handleSave}
           >
             {pending ? "Ukládám…" : "Uložit změny"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={handleRestoreDefaults}
+          >
+            Obnovit výchozí
           </Button>
         </div>
       </div>
