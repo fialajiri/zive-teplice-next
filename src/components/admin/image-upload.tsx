@@ -22,7 +22,13 @@ import { ImageCropDialog } from "@/components/admin/image-crop-dialog";
 
 export type { UploadedImage };
 
-type UploadPrefix = "news" | "gallery" | "program" | "performer";
+type UploadPrefix =
+  | "news"
+  | "gallery"
+  | "program"
+  | "performer"
+  | "homepageHero"
+  | "homepageAbout";
 
 type ImageUploadProps = {
   id?: string;

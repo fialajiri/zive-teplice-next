@@ -5,6 +5,7 @@ import { createEventRepository } from "./infrastructure/db/repositories/event.re
 import { createPerformerRepository } from "./infrastructure/db/repositories/performer.repository";
 import { createAuthUserRepository } from "./infrastructure/db/repositories/auth.repository";
 import { createSettingsRepository } from "./infrastructure/db/repositories/settings.repository";
+import { createHomepageContentRepository } from "./infrastructure/db/repositories/homepage-content.repository";
 import { createS3Storage } from "./infrastructure/storage/s3";
 import { createResendMailer } from "./infrastructure/email/mailer";
 import { createUpstashRateLimiter } from "./infrastructure/rate-limit/upstash";
@@ -19,6 +20,7 @@ export const container = {
   performerRepository: createPerformerRepository(),
   authUserRepository: createAuthUserRepository(),
   settingsRepository: createSettingsRepository(),
+  homepageContentRepository: createHomepageContentRepository(),
   storage: createS3Storage(),
   mailer: createResendMailer(),
   // Separate buckets per flow so a burst of logins can't eat into the

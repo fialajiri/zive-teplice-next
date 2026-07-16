@@ -22,6 +22,11 @@ export const UPLOAD_MAX_FILES = {
   gallery: 150,
   program: 1,
   performer: 1,
+  // Two distinct slots (not one shared "homepage" prefix) so each image gets
+  // its own S3 key namespace — that's what lets `isValidUploadedImage` tell
+  // "issued for the hero slot" apart from "issued for the about slot".
+  homepageHero: 1,
+  homepageAbout: 1,
 } as const;
 
 export type UploadPrefix = keyof typeof UPLOAD_MAX_FILES;

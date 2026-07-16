@@ -45,6 +45,12 @@ export default async function AdminLayout({
             </div>
             <nav aria-label="Administrace" className="flex items-center gap-4">
               <Link
+                href="/admin/uvod"
+                className="text-muted-foreground hover:text-foreground text-sm"
+              >
+                Úvodní stránka
+              </Link>
+              <Link
                 href="/admin/aktuality"
                 className="text-muted-foreground hover:text-foreground text-sm"
               >
