@@ -24,6 +24,8 @@ export type RateLimiterOptions = {
 export function createUpstashRateLimiter(
   options: RateLimiterOptions,
 ): RateLimiter {
+  if (process.env.RATE_LIMIT_DISABLED === "true") return ALWAYS_ALLOW;
+
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
