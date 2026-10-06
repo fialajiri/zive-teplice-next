@@ -90,12 +90,20 @@ export function createS3Storage(): StoragePort {
 
       // Sign exactly the headers the browser will echo — Content-Type always,
       // x-amz-acl only when we set an ACL (v3 rejects a mismatch with 403).
+      // The presigner hoists every x-amz-* header into the query string unless
+      // it is unhoistable; S3 then 403s the browser's (now unsigned) x-amz-acl
+      // header, so it must stay a signed header.
       const signableHeaders = new Set(["content-type"]);
-      if (acl) signableHeaders.add("x-amz-acl");
+      const unhoistableHeaders = new Set<string>();
+      if (acl) {
+        signableHeaders.add("x-amz-acl");
+        unhoistableHeaders.add("x-amz-acl");
+      }
 
       const uploadUrl = await getSignedUrl(client, command, {
         expiresIn: PRESIGN_TTL_SECONDS,
         signableHeaders,
+        unhoistableHeaders,
       });
 
       const requiredHeaders: Record<string, string> = {
