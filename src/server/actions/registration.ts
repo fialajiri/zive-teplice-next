@@ -45,6 +45,7 @@ function deps(): RegistrationDeps {
     performers: container.performerRepository,
     settings: container.settingsRepository,
     events: container.eventRepository,
+    mailer: container.mailer,
     hashPassword,
   };
 }

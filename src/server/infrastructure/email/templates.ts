@@ -35,3 +35,21 @@ export function participationDecisionEmail(
     html: `<p>${body}</p>\n<p>S pozdravem<br />tým Živých Teplic</p>`,
   };
 }
+
+// Sent right after a performer registers. No dynamic input — the only branch is
+// whether registration also auto-requested participation in the current ročník.
+export function registrationConfirmationEmail(
+  participationRequested: boolean,
+): EmailContent {
+  const next = participationRequested
+    ? "Zároveň jsme přijali Vaši přihlášku na letošní Živé Teplice. Jakmile ji posoudíme, dáme Vám vědět e-mailem."
+    : "Přihlášku na Živé Teplice můžete odeslat ze svého účtu, jakmile bude vypsán nový ročník.";
+  return {
+    subject: "Registrace na Živé Teplice",
+    html: [
+      "<p>Děkujeme za registraci na Živých Teplicích, Váš účet byl úspěšně vytvořen.</p>",
+      `<p>${next}</p>`,
+      "<p>S pozdravem<br />tým Živých Teplic</p>",
+    ].join("\n"),
+  };
+}

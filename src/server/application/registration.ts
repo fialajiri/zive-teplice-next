@@ -4,6 +4,8 @@ import type { ImageDto } from "@/server/domain/news";
 import type { PasswordHash } from "@/server/infrastructure/auth/password";
 import type { SettingsRepository } from "@/server/domain/settings";
 import type { EventRepository } from "@/server/domain/event";
+import type { Mailer } from "@/server/domain/mailer";
+import { registrationConfirmationEmail } from "@/server/infrastructure/email/templates";
 import {
   err,
   ok,
@@ -21,6 +23,7 @@ export type RegistrationDeps = {
   performers: PerformerRepository;
   settings: SettingsRepository;
   events: EventRepository;
+  mailer: Mailer;
   hashPassword: (password: string) => Promise<PasswordHash>;
 };
 
@@ -135,11 +138,24 @@ export async function registerUser(
     // implies wanting to take part). Best-effort — a failure here shouldn't
     // fail the whole registration; the performer just stays "notsend" and can
     // request participation manually from their account.
+    let participationRequested = false;
     try {
       const currentEvent = await deps.events.getCurrent();
       if (currentEvent) {
-        await deps.performers.setRequest(id, "pending");
+        participationRequested = await deps.performers.setRequest(
+          id,
+          "pending",
+        );
       }
+    } catch {
+      // Ignored — see comment above.
+    }
+
+    // Best-effort confirmation: the account already exists, so a mail failure
+    // must not fail the registration. The send Result is ignored on purpose.
+    try {
+      const content = registrationConfirmationEmail(participationRequested);
+      await deps.mailer.send({ to: data.email, ...content });
     } catch {
       // Ignored — see comment above.
     }

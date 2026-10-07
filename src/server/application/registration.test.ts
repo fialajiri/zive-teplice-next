@@ -3,6 +3,8 @@ import { registerUser, type RegistrationDeps } from "./registration";
 import type { PerformerRepository } from "@/server/domain/performer";
 import type { SettingsRepository } from "@/server/domain/settings";
 import type { EventDto, EventRepository } from "@/server/domain/event";
+import type { Mailer } from "@/server/domain/mailer";
+import { ok } from "@/server/domain/result";
 
 const VALID = {
   email: "novy@ucinkujici.cz",
@@ -28,10 +30,12 @@ function makeDeps(overrides?: {
   create: ReturnType<typeof vi.fn>;
   hashPassword: ReturnType<typeof vi.fn>;
   setRequest: ReturnType<typeof vi.fn>;
+  send: ReturnType<typeof vi.fn>;
 } {
   const create = vi.fn(async () => "new-id");
   const hashPassword = vi.fn(async () => ({ salt: "s".repeat(64), hash: "h" }));
   const setRequest = vi.fn(async () => true);
+  const send = vi.fn<Mailer["send"]>(async () => ok(undefined));
 
   const performers: PerformerRepository = {
     list: vi.fn(),
@@ -69,10 +73,11 @@ function makeDeps(overrides?: {
   };
 
   return {
-    deps: { performers, settings, events, hashPassword },
+    deps: { performers, settings, events, mailer: { send }, hashPassword },
     create,
     hashPassword,
     setRequest,
+    send,
   };
 }
 
@@ -206,5 +211,45 @@ describe("registerUser", () => {
     const result = await registerUser(deps, VALID);
 
     expect(result.ok).toBe(true);
+  });
+
+  it("emails a confirmation that mentions the participation request", async () => {
+    const { deps, send } = makeDeps({ currentEvent: CURRENT_EVENT });
+
+    await registerUser(deps, VALID);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    const message = send.mock.calls[0]?.[0];
+    expect(message?.to).toBe(VALID.email);
+    expect(message?.subject).toBe("Registrace na Živé Teplice");
+    expect(message?.html).toContain("přijali Vaši přihlášku");
+  });
+
+  it("emails a confirmation without a participation request when there is no current event", async () => {
+    const { deps, send } = makeDeps({ currentEvent: null });
+
+    await registerUser(deps, VALID);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0]?.[0]?.html).not.toContain(
+      "přijali Vaši přihlášku",
+    );
+  });
+
+  it("still succeeds registration when the confirmation email fails", async () => {
+    const { deps, send } = makeDeps();
+    send.mockRejectedValueOnce(new Error("provider down"));
+
+    const result = await registerUser(deps, VALID);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("sends no email when registration is rejected", async () => {
+    const { deps, send } = makeDeps({ registrationOpen: false });
+
+    await registerUser(deps, VALID);
+
+    expect(send).not.toHaveBeenCalled();
   });
 });
